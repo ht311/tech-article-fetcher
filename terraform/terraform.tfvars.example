@@ -4,4 +4,5 @@
 
 cloudflare_api_token  = "your-cloudflare-api-token"
 cloudflare_account_id = "your-cloudflare-account-id"
-line_channel_secret   = "your-line-channel-secret"
+line_channel_secret        = "your-line-channel-secret"
+line_channel_access_token  = "your-line-channel-access-token"

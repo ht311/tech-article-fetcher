@@ -14,3 +14,9 @@ variable "line_channel_secret" {
   type        = string
   sensitive   = true
 }
+
+variable "line_channel_access_token" {
+  description = "LINE Channel Access Token（Reply API で返信送信に使用）"
+  type        = string
+  sensitive   = true
+}

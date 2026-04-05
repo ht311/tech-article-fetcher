@@ -45,4 +45,10 @@ resource "cloudflare_workers_script" "webhook" {
     name = "LINE_CHANNEL_SECRET"
     text = var.line_channel_secret
   }
+
+  # LINE_CHANNEL_ACCESS_TOKEN を Secret として設定（Reply API 用）
+  secret_text_binding {
+    name = "LINE_CHANNEL_ACCESS_TOKEN"
+    text = var.line_channel_access_token
+  }
 }

@@ -6,14 +6,16 @@
  *   2. events[].message.text から「👍N」「👎N」パターンをパース
  *   3. KV の last_articles から記事情報を照合
  *   4. KV の preferences にフィードバックを追記（最大 MAX_HISTORY 件）
- *   5. 200 OK を返す（LINE は 200 以外でリトライするため必須）
+ *   5. LINE Reply API で確認メッセージを返信
+ *   6. 200 OK を返す（LINE は 200 以外でリトライするため必須）
  *
  * KV バインディング名: KV
- * Cloudflare Secret: LINE_CHANNEL_SECRET
+ * Cloudflare Secret: LINE_CHANNEL_SECRET, LINE_CHANNEL_ACCESS_TOKEN
  */
 
 const MAX_HISTORY = 100;
 const FEEDBACK_RE = /^([👍👎])(\d+)$/u;
+const LINE_REPLY_URL = "https://api.line.me/v2/bot/message/reply";
 
 /**
  * HMAC-SHA256 で LINE の署名を検証する。
@@ -52,8 +54,28 @@ function parseFeedback(text) {
 }
 
 /**
+ * LINE Reply API でメッセージを返信する。
+ * @param {string} channelAccessToken
+ * @param {string} replyToken
+ * @param {string} text
+ */
+async function replyMessage(channelAccessToken, replyToken, text) {
+  await fetch(LINE_REPLY_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${channelAccessToken}`,
+    },
+    body: JSON.stringify({
+      replyToken,
+      messages: [{ type: "text", text }],
+    }),
+  });
+}
+
+/**
  * @param {Request} request
- * @param {{ KV: KVNamespace, LINE_CHANNEL_SECRET: string }} env
+ * @param {{ KV: KVNamespace, LINE_CHANNEL_SECRET: string, LINE_CHANNEL_ACCESS_TOKEN: string }} env
  */
 export default {
   async fetch(request, env) {
@@ -85,7 +107,9 @@ export default {
       const feedback = parseFeedback(text);
       if (!feedback) continue;
 
-      await handleFeedback(env.KV, feedback.action, feedback.index).catch((err) => {
+      const replyToken = event.replyToken;
+
+      await handleFeedback(env.KV, feedback.action, feedback.index, replyToken, env.LINE_CHANNEL_ACCESS_TOKEN).catch((err) => {
         console.error("handleFeedback error:", err);
       });
     }
@@ -95,22 +119,30 @@ export default {
 };
 
 /**
- * フィードバックを KV に記録する。
+ * フィードバックを KV に記録し、ユーザーに返信する。
  * @param {KVNamespace} kv
  * @param {"good" | "bad"} action
  * @param {number} articleIndex - 1-indexed
+ * @param {string} replyToken
+ * @param {string} channelAccessToken
  */
-async function handleFeedback(kv, action, articleIndex) {
+async function handleFeedback(kv, action, articleIndex, replyToken, channelAccessToken) {
   // last_articles から記事情報を取得
   const lastArticlesRaw = await kv.get("last_articles");
   if (!lastArticlesRaw) {
     console.warn("last_articles not found in KV");
+    if (replyToken) {
+      await replyMessage(channelAccessToken, replyToken, "フィードバックを受け取りましたが、記事情報が見つかりませんでした。");
+    }
     return;
   }
   const lastArticles = JSON.parse(lastArticlesRaw);
   const article = lastArticles[String(articleIndex)];
   if (!article) {
     console.warn(`Article index ${articleIndex} not found in last_articles`);
+    if (replyToken) {
+      await replyMessage(channelAccessToken, replyToken, "フィードバックを受け取りましたが、記事情報が見つかりませんでした。");
+    }
     return;
   }
 
@@ -134,4 +166,11 @@ async function handleFeedback(kv, action, articleIndex) {
 
   await kv.put("preferences", JSON.stringify(prefs));
   console.log(`Recorded ${action} for article ${articleIndex}: ${article.title}`);
+
+  // ユーザーに返信
+  if (replyToken) {
+    const emoji = action === "good" ? "👍" : "👎";
+    const replyText = `${emoji} フィードバックありがとうございます！\n「${article.title}」の評価を記録しました。`;
+    await replyMessage(channelAccessToken, replyToken, replyText);
+  }
 }
