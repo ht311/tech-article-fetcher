@@ -6,7 +6,8 @@
   },
   "features": {
     "ghcr.io/devcontainers/features/git:1": {},
-    "ghcr.io/devcontainers/features/github-cli:1": {}
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/terraform:1": {}
   },
   "customizations": {
     "vscode": {
@@ -14,7 +15,8 @@
         "ms-python.python",
         "ms-python.ruff",
         "ms-python.mypy-type-checker",
-        "tamasfe.even-better-toml"
+        "tamasfe.even-better-toml",
+        "hashicorp.terraform"
       ],
       "settings": {
         "python.defaultInterpreterPath": "/usr/local/bin/python",

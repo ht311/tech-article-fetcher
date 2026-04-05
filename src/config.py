@@ -38,3 +38,23 @@ SELECT_MAX = 7
 # Gemini API エラー時のリトライ設定（指数バックオフ）
 GEMINI_MAX_RETRIES = 3
 GEMINI_RETRY_BASE_WAIT = 2.0  # seconds
+
+# LINE Quick Reply の制約（最大13アイテム = 6記事×2ボタン）
+MAX_ARTICLES_WITH_QUICKREPLY = 6
+
+# Hacker News API（Firebase REST API、認証不要）
+HN_TOP_STORIES_URL = "https://hacker-news.firebaseio.com/v0/topstories.json"
+HN_ITEM_URL = "https://hacker-news.firebaseio.com/v0/item/{id}.json"
+HN_FETCH_COUNT = 30   # 上位N件をフェッチしてフィルタする
+HN_MIN_SCORE = 100    # スコアのしきい値
+
+# Reddit JSON API（認証不要・User-Agent必須）
+REDDIT_BASE_URL = "https://www.reddit.com/r/{subreddit}/hot.json"
+REDDIT_SUBREDDITS = ["programming", "webdev", "javascript", "golang", "MachineLearning"]
+REDDIT_MIN_SCORE = 500
+REDDIT_PER_PAGE = 25
+
+# dev.to API（認証不要）
+DEVTO_API_URL = "https://dev.to/api/articles"
+DEVTO_TOP_PERIOD = 7    # 過去N日のトレンド
+DEVTO_PER_PAGE = 20

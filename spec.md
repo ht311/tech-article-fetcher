@@ -5,19 +5,28 @@
 Webエンジニア向けの技術記事を毎日収集し、LINEに配信するボットを構築する。
 GitHub Actions をスケジューラーとして使うことでサーバーレス・ゼロインフラコストを実現。
 記事の選定は Gemini API に任せ、質の高いキュレーションを自動化する。
+ユーザーは記事に対してgood/badを送ることで嗜好を記録し、日々の選定に反映される。
 
 ---
 
 ## アーキテクチャ概要
 
 ```
-GitHub Actions (cron: 毎日 JST 8:00)
+[GitHub Actions (cron: 毎日 JST 8:00)]
   ↓
 Python スクリプト
-  ├── RSS/API から記事収集（Zenn, Qiita, 企業テックブログ 等 20+ ソース）
+  ├── 記事収集（RSS/API + HN / Reddit / dev.to）
   ├── 直近24時間にフィルタ・重複排除
-  ├── Gemini API (gemini-2.0-flash) で TOP 5〜7 件を選定
-  └── LINE Messaging API (Push Message) でユーザーに送信
+  ├── Cloudflare KV からユーザー嗜好を読み込み
+  ├── Gemini API (gemini-2.0-flash) で TOP 5〜6 件を選定
+  ├── LINE Messaging API (Push Message) でQuick Replyボタン付き送信
+  └── 送信した記事リストを Cloudflare KV に書き込み
+
+[Cloudflare Worker (常時稼働・無料)]
+  ├── LINE webhookを受信・署名検証
+  ├── 「👍1」「👎3」などのテキストをパース
+  ├── KVの last_articles から記事情報を照合
+  └── KVの preferences に評価履歴を追記（最大100件）
 ```
 
 ---
@@ -29,9 +38,9 @@ Python スクリプト
 | GitHub Actions（パブリックリポジトリ） | 30回 × 約2分 | **$0** |
 | LINE Messaging API（月1000通無料） | 30通 | **$0** |
 | Gemini API (gemini-2.0-flash) | ~2,000 tokens × 30回 | **$0（無料枠内）** |
+| Cloudflare Workers（100k req/日無料） | 30回/日 | **$0** |
+| Cloudflare KV（100k reads/日, 1k writes/日無料） | 60 ops/日 | **$0** |
 | **合計** | | **$0/月** |
-
-> Gemini API の無料枠は 1日1500リクエスト（Flash モデル）。完全ゼロコストで運用可能。
 
 ---
 
@@ -45,32 +54,52 @@ tech-article-fetcher/
 ├── .github/
 │   └── workflows/
 │       └── daily-fetch.yml
+├── cloudflare/
+│   └── src/
+│       └── index.js             # LINE webhookハンドラー（Cloudflare Worker）
+├── terraform/
+│   ├── main.tf                  # Cloudflareプロバイダー設定・リソース定義
+│   ├── variables.tf             # 変数定義
+│   ├── outputs.tf               # KV Namespace IDなどの出力
+│   └── terraform.tfvars.example # 変数サンプル
 ├── src/
 │   ├── __init__.py
-│   ├── main.py              # エントリーポイント
-│   ├── config.py            # RSSソース一覧・定数（ここだけ編集すればソース追加可）
-│   ├── models.py            # Pydantic データモデル（Article など）
+│   ├── main.py                  # エントリーポイント
+│   ├── config.py                # ソース一覧・定数
+│   ├── models.py                # Pydantic データモデル
 │   ├── fetchers/
 │   │   ├── __init__.py
-│   │   ├── rss_fetcher.py   # RSS/Atom フィード取得（feedparser）
-│   │   └── qiita_fetcher.py # Qiita API 取得
+│   │   ├── rss_fetcher.py       # RSS/Atom フィード取得
+│   │   ├── qiita_fetcher.py     # Qiita API 取得
+│   │   ├── hacker_news_fetcher.py  # Hacker News Firebase API
+│   │   ├── reddit_fetcher.py    # Reddit JSON API
+│   │   └── devto_fetcher.py     # dev.to API（トレンド）
 │   ├── selector/
 │   │   ├── __init__.py
-│   │   └── gemini_selector.py  # Gemini API による記事選定
-│   └── notifier/
+│   │   └── gemini_selector.py   # Gemini API による記事選定（嗜好反映）
+│   ├── notifier/
+│   │   ├── __init__.py
+│   │   └── line_notifier.py     # LINE Push + QuickReply送信
+│   └── storage/
 │       ├── __init__.py
-│       └── line_notifier.py    # LINE Flex Message 送信
+│       └── preferences.py       # Cloudflare KV 読み書き
+├── tests/
+│   ├── test_fetchers.py
+│   ├── test_new_fetchers.py
+│   ├── test_selector.py
+│   ├── test_notifier.py
+│   └── test_preferences.py
 ├── .env.example
 ├── pyproject.toml
 ├── requirements.txt
-└── spec.md                  # 本ファイル
+└── spec.md
 ```
 
 ---
 
-## 記事ソース一覧（`src/config.py`）
+## 記事ソース一覧
 
-RSS フィードで取得するソース（認証不要）:
+### RSS フィード（`src/config.py`）
 
 | カテゴリ | ソース | RSS URL |
 |---|---|---|
@@ -83,14 +112,20 @@ RSS フィードで取得するソース（認証不要）:
 | 企業テックブログ | DeNA | `https://engineering.dena.com/blog/index.xml` |
 | 企業テックブログ | SmartHR | `https://tech.smarthr.jp/feed` |
 | 企業テックブログ | LayerX | `https://tech.layerx.co.jp/feed` |
-| 海外技術記事 | dev.to | `https://dev.to/feed` |
+| 海外技術記事 | dev.to (RSS) | `https://dev.to/feed` |
 | 海外技術記事 | GitHub Blog | `https://github.blog/feed/` |
 | 海外技術記事 | AWS Blog | `https://aws.amazon.com/blogs/aws/feed/` |
 | 海外技術記事 | Cloudflare Blog | `https://blog.cloudflare.com/rss/` |
 | 海外技術記事 | Vercel Blog | `https://vercel.com/blog/rss.xml` |
 
-Qiita は API も使用（ストック数でスコアリング可能）:
-- エンドポイント: `https://qiita.com/api/v2/items?query=stocks:>50&per_page=20`
+### API取得（トレンドアグリゲーター）
+
+| ソース | 方式 | 備考 |
+|---|---|---|
+| Qiita | API | `stocks:>50` でフィルタ |
+| Hacker News | Firebase API | スコア100以上・24h以内 |
+| Reddit | JSON API（認証不要） | r/programming, r/webdev, r/javascript, r/golang, r/MachineLearning |
+| dev.to | REST API | トレンド（過去7日）上位20件 |
 
 ---
 
@@ -102,7 +137,7 @@ Qiita は API も使用（ストック数でスコアリング可能）:
 
 ```
 あなたはWebエンジニア向けの技術記事キュレーターです。
-提供された記事リストから、以下の基準でおすすめ記事を5〜7件選んでください。
+提供された記事リストから、以下の基準でおすすめ記事を5〜6件選んでください。
 
 選定基準（優先順位順）:
 1. 実務で即役立つ技術トピック（新機能、ベストプラクティス、パフォーマンス改善）
@@ -114,6 +149,9 @@ Qiita は API も使用（ストック数でスコアリング可能）:
 - 宣伝・採用目的が主な記事
 - 内容が浅い入門記事（初心者向けハンズオンなど）
 
+ユーザーの過去の評価傾向（参考情報）:
+{preferences_summary}  ← 嗜好データがある場合に動的に挿入
+
 出力形式: JSON配列のみ返してください。
 [{"index": 0, "reason": "選定理由（日本語30字以内）"}, ...]
 ```
@@ -122,7 +160,7 @@ Qiita は API も使用（ストック数でスコアリング可能）:
 
 ## LINE メッセージ仕様（`src/notifier/line_notifier.py`）
 
-Flex Message の carousel 形式で送信（1日1通カウント）:
+### メッセージ形式
 
 ```
 📚 今日の技術記事 (2026/04/05)
@@ -131,18 +169,111 @@ Flex Message の carousel 形式で送信（1日1通カウント）:
    → 選定理由
    🔗 URL
 
-2. [GitHub Blog] タイトル
+2. [Hacker News] タイトル
    → 選定理由
    🔗 URL
-   ...
+   ...（最大6件）
 ```
+
+### Quick Reply ボタン
+
+記事リストの下に以下のボタンを表示（最大12アイテム = 6記事×2ボタン）:
+
+```
+[👍1] [👎1] [👍2] [👎2] [👍3] [👎3] [👍4] [👎4] [👍5] [👎5] [👍6] [👎6]
+```
+
+ユーザーがタップ → LINEがメッセージとして送信 → Cloudflare Worker が受信・KVに記録
+
+---
+
+## ユーザー嗜好システム
+
+### データ構造（Cloudflare KV）
+
+**キー: `preferences`**
+```json
+{
+  "history": [
+    {
+      "action": "good",
+      "title": "TypeScript 5.5の新機能まとめ",
+      "source": "Zenn",
+      "url": "https://...",
+      "timestamp": "2026-04-05T08:05:00Z"
+    }
+  ]
+}
+```
+
+**キー: `last_articles`**
+```json
+{
+  "1": {"title": "...", "source": "Zenn", "url": "https://..."},
+  "2": {"title": "...", "source": "Hacker News", "url": "https://..."}
+}
+```
+
+### Geminiへの嗜好反映
+
+historyを集計してGeminiプロンプトに追記:
+```
+ユーザーの過去の評価傾向（参考情報）:
+- 高評価したソース: Zenn (4件), GitHub Blog (2件)
+- 高評価したトピック: TypeScript, パフォーマンス最適化
+- 低評価したトピック: 採用記事, 初心者向け入門
+
+この傾向を参考にしつつ、多様性も維持してください。
+```
+
+---
+
+## Cloudflare Worker 仕様（`cloudflare/src/index.js`）
+
+### 処理フロー
+
+1. `X-Line-Signature` ヘッダーでHMAC-SHA256署名検証
+2. `events[].message.text` から `👍N` / `👎N` パターンをマッチ
+3. `KV.get("last_articles")` → 記事Nの情報を取得
+4. `KV.get("preferences")` → 既存履歴を取得
+5. フィードバックを追記（最大100件でローテート）
+6. `KV.put("preferences", updatedData)` で保存
+7. 200 OK を返す
+
+### 環境変数（Cloudflare Secrets）
+
+| 変数名 | 内容 |
+|---|---|
+| `LINE_CHANNEL_SECRET` | LINE署名検証に使用 |
+
+---
+
+## Terraform IaC（`terraform/`）
+
+Cloudflare Terraform プロバイダーでインフラをコード管理。
+
+### 管理リソース
+
+| リソース | 内容 |
+|---|---|
+| `cloudflare_workers_kv_namespace` | KV Namespace作成 |
+| `cloudflare_workers_script` | Workerスクリプトのデプロイ |
+
+### 変数（`terraform/variables.tf`）
+
+| 変数名 | 内容 |
+|---|---|
+| `cloudflare_api_token` | Cloudflare APIトークン |
+| `cloudflare_account_id` | CloudflareアカウントID |
+| `line_channel_secret` | LINE署名検証キー（Workerのsecretとして設定） |
 
 ---
 
 ## devContainer 仕様（`.devcontainer/`）
 
 - ベースイメージ: `python:3.12-slim`
-- VS Code 拡張: `ms-python.python`, `ms-python.ruff`, `ms-python.mypy-type-checker`
+- 追加ツール: Node.js（Wrangler CLI用）、Terraform CLI
+- VS Code 拡張: `ms-python.python`, `ms-python.ruff`, `ms-python.mypy-type-checker`, `hashicorp.terraform`
 - `postCreateCommand`: `pip install -e '.[dev]'`
 
 ---
@@ -163,34 +294,31 @@ on:
 | `GEMINI_API_KEY` | Google AI Studio で発行した API キー |
 | `LINE_CHANNEL_ACCESS_TOKEN` | LINE チャンネルアクセストークン（長期） |
 | `LINE_USER_ID` | 送信先 LINE ユーザー ID（`U` で始まる文字列） |
+| `LINE_CHANNEL_SECRET` | LINE署名検証キー |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare API トークン |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare アカウント ID |
+| `CLOUDFLARE_KV_NAMESPACE_ID` | KV Namespace ID（Terraform outputから取得） |
 
 ---
 
 ## エラーハンドリング方針
 
 - 各フィード取得は独立して実行。一部失敗しても他で継続
-- Gemini API エラー: 最大3回リトライ（指数バックオフ）
+- Gemini API エラー: 最大3回リトライ（指数バックオフ）→ フォールバック選定
+- Cloudflare KV 読み取り失敗: 嗜好なしで通常通り実行
+- Cloudflare KV 書き込み失敗: ログ出力のみ、送信は継続
 - 全体失敗時: Actions ジョブを失敗させ GitHub のメール通知で検知
-
----
-
-## 実装手順
-
-1. devContainer セットアップ（`pyproject.toml`, `.devcontainer/`）
-2. `src/models.py` + `src/config.py` でデータ構造・ソース一覧を定義
-3. `src/fetchers/rss_fetcher.py` 実装・動作確認
-4. `src/fetchers/qiita_fetcher.py` 実装
-5. `src/selector/gemini_selector.py` 実装・プロンプト調整
-6. `src/notifier/line_notifier.py` 実装・LINE 送信確認
-7. `src/main.py` で統合・E2E テスト
-8. GitHub Secrets 登録
-9. `daily-fetch.yml` 追加、`workflow_dispatch` で動作確認 → cron 有効化
 
 ---
 
 ## 前提条件（事前に用意するもの）
 
-1. LINE Developers でチャンネル作成 → `LINE_CHANNEL_ACCESS_TOKEN` 取得
+1. LINE Developers でチャンネル作成（Messaging API）
+   - `LINE_CHANNEL_ACCESS_TOKEN` と `LINE_CHANNEL_SECRET` を取得
+   - Webhook URLをCloudflare Worker URLに設定
 2. ボットを友だち追加して `LINE_USER_ID` 取得
 3. Google AI Studio で `GEMINI_API_KEY` 取得
-4. GitHub リポジトリをパブリックに設定（Actions 無料化のため）
+4. Cloudflare アカウント作成（無料）
+5. Terraform CLI インストール
+6. `cd terraform && terraform init && terraform apply` でCloudflareリソース作成
+7. GitHub リポジトリをパブリックに設定（Actions 無料化のため）

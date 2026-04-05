@@ -8,7 +8,7 @@ from google import genai
 from google.genai import types
 
 from src.config import GEMINI_MAX_RETRIES, GEMINI_MODEL, GEMINI_RETRY_BASE_WAIT, SELECT_MAX, SELECT_MIN
-from src.models import Article, SelectedArticle
+from src.models import Article, SelectedArticle, UserPreferences
 
 _RETRY_AFTER_RE = re.compile(r"Please retry in ([\d.]+)s")
 
@@ -63,8 +63,12 @@ def deduplicate(articles: list[Article]) -> list[Article]:
     return unique
 
 
-async def select_articles(articles: list[Article]) -> list[SelectedArticle]:
-    """Gemini API を使って記事リストから上位 5〜7 件を選定する。
+async def select_articles(
+    articles: list[Article],
+    preferences: UserPreferences | None = None,
+) -> list[SelectedArticle]:
+    """Gemini API を使って記事リストから上位 5〜6 件を選定する。
+    preferences が指定されている場合はユーザー嗜好をプロンプトに追記する。
     失敗時は指数バックオフで最大 GEMINI_MAX_RETRIES 回リトライする。
     """
     api_key = os.environ.get("GEMINI_API_KEY")
@@ -72,10 +76,18 @@ async def select_articles(articles: list[Article]) -> list[SelectedArticle]:
         raise EnvironmentError("GEMINI_API_KEY is not set")
 
     client = genai.Client(api_key=api_key)
-    config = types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT)
+
+    # 嗜好サマリーをシステムプロンプトに追記する
+    system_prompt = SYSTEM_PROMPT
+    if preferences:
+        summary = preferences.get_summary()
+        if summary:
+            system_prompt = f"{SYSTEM_PROMPT}\n\n{summary}"
+
+    config = types.GenerateContentConfig(system_instruction=system_prompt)
 
     article_text = _build_article_list_text(articles)
-    prompt = f"以下の記事リストから5〜7件選んでください:\n\n{article_text}"
+    prompt = f"以下の記事リストから5〜6件選んでください:\n\n{article_text}"
 
     for attempt in range(GEMINI_MAX_RETRIES):
         try:

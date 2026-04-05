@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -v \"^d.*\\\\.$\")",
+      "Bash(pip install:*)",
+      "Bash(python:*)"
+    ]
+  }
+}

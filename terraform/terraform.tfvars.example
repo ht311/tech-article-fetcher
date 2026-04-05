@@ -1,0 +1,7 @@
+# terraform.tfvars.example
+# このファイルをコピーして terraform.tfvars を作成し、実際の値を設定してください。
+# terraform.tfvars は .gitignore に追加してください（機密情報が含まれるため）。
+
+cloudflare_api_token  = "your-cloudflare-api-token"
+cloudflare_account_id = "your-cloudflare-account-id"
+line_channel_secret   = "your-line-channel-secret"
