@@ -60,7 +60,7 @@ function parseFeedback(text) {
  * @param {string} text
  */
 async function replyMessage(channelAccessToken, replyToken, text) {
-  await fetch(LINE_REPLY_URL, {
+  const res = await fetch(LINE_REPLY_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -71,6 +71,10 @@ async function replyMessage(channelAccessToken, replyToken, text) {
       messages: [{ type: "text", text }],
     }),
   });
+  if (!res.ok) {
+    const body = await res.text();
+    console.error(`LINE Reply API error: ${res.status} ${body}`);
+  }
 }
 
 /**
