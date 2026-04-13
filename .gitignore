@@ -28,3 +28,6 @@ htmlcov/
 .DS_Store
 
 memo.md
+
+# Claude Code (個人設定はgit管理外)
+.claude/settings.local.json

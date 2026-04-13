@@ -36,6 +36,33 @@
       "Bash(npm list:*)",
       "Bash(make:*)",
       "Bash(grep -v \"^d.*\\\\.$\")"
-    ]
+    ],
+    "deny": [
+      "Bash(rm -rf /:*)",
+      "Bash(rm -rf ~:*)",
+      "Bash(rm -rf --no-preserve-root:*)",
+      "Bash(dd:*)",
+      "Bash(mkfs:*)",
+      "Bash(mkfs.*:*)",
+      "Bash(fdisk:*)",
+      "Bash(parted:*)",
+      "Bash(shred:*)",
+      "Bash(wipefs:*)",
+      "Bash(sudo rm -rf:*)"
+    ],
+    "defaultMode": "bypassPermissions"
+  },
+  "model": "opusplan",
+  "extraKnownMarketplaces": {
+    "caveman": {
+      "source": {
+        "source": "github",
+        "repo": "JuliusBrussee/caveman"
+      }
+    }
+  },
+  "skipDangerousModePermissionPrompt": true,
+  "enabledPlugins": {
+    "caveman@caveman": true
   }
 }
