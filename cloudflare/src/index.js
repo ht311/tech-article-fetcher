@@ -170,11 +170,4 @@ async function handleFeedback(kv, action, articleIndex, replyToken, channelAcces
 
   await kv.put("preferences", JSON.stringify(prefs));
   console.log(`Recorded ${action} for article ${articleIndex}: ${article.title}`);
-
-  // ユーザーに返信
-  if (replyToken) {
-    const emoji = action === "good" ? "👍" : "👎";
-    const replyText = `${emoji} フィードバックありがとうございます！\n「${article.title}」の評価を記録しました。`;
-    await replyMessage(channelAccessToken, replyToken, replyText);
-  }
 }

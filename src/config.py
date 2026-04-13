@@ -58,8 +58,6 @@ GEMINI_MAX_INPUT_ARTICLES = 25
 GEMINI_MAX_RETRIES = 5
 GEMINI_RETRY_BASE_WAIT = 2.0  # seconds
 
-# LINE Quick Reply の制約（最大13アイテム = 6記事×2ボタン）
-MAX_ARTICLES_WITH_QUICKREPLY = 6
 
 # Hacker News API（Firebase REST API、認証不要）
 HN_TOP_STORIES_URL = "https://hacker-news.firebaseio.com/v0/topstories.json"

@@ -13,17 +13,18 @@ Python スクリプト
   ├── RSS / Qiita / Hacker News / Reddit / dev.to から記事並列収集
   ├── 直近 24 時間にフィルタ・重複排除
   ├── Cloudflare KV からユーザー嗜好（過去フィードバック）を読み込み
-  ├── Gemini API (gemini-2.0-flash) で TOP 5〜6 件を選定（嗜好を反映）
-  ├── LINE Messaging API（Quick Reply ボタン付き Push Message）で送信
+  ├── Gemini API (gemini-2.0-flash) で TOP 5〜7 件を選定（嗜好を反映）
+  ├── LINE Messaging API（Flex Message カルーセル）で送信
   └── 送信記事リストを Cloudflare KV に保存
 
 LINE アプリ (ユーザー)
-  └── 👍N / 👎N をタップ
+  └── カード上の 👍/👎 ボタンをタップ
         ↓
   Cloudflare Worker（LINE Webhook ハンドラー）
   ├── X-Line-Signature で HMAC-SHA256 署名検証
   ├── KV.get("last_articles") で記事照合
-  └── KV.put("preferences") にフィードバック追記（最大 100 件）
+  ├── KV.put("preferences") にフィードバック追記（最大 100 件）
+  └── エラー時のみ返信（メッセージ数節約）
 ```
 
 ## ファイル構成
@@ -42,7 +43,7 @@ src/
 ├── selector/
 │   └── gemini_selector.py       # Gemini API による記事選定
 ├── notifier/
-│   └── line_notifier.py         # LINE Push Message 送信（Quick Reply 付き）
+│   └── line_notifier.py         # LINE Push Message 送信（Flex Message カルーセル）
 └── storage/
     └── preferences.py           # Cloudflare KV 読み書き（嗜好・記事リスト）
 cloudflare/
@@ -133,7 +134,7 @@ ruff check src/ tests/
 | サービス | 月間使用量 | コスト |
 |----------|-----------|--------|
 | GitHub Actions（パブリックリポジトリ） | 30回 × 約2分 | **$0** |
-| LINE Messaging API（月1000通無料） | 30通 | **$0** |
+| LINE Messaging API（月200通無料） | 30通 | **$0** |
 | Gemini API（無料枠: 1日1500リクエスト） | 30回 | **$0** |
 | Cloudflare Workers（無料枠: 10万リクエスト/日） | 30回 | **$0** |
 | Cloudflare KV（無料枠: 10万読み取り/日） | 60回 | **$0** |

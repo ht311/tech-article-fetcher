@@ -18,15 +18,16 @@ Python スクリプト
   ├── 記事収集（RSS/API + HN / Reddit / dev.to）
   ├── 直近24時間にフィルタ・重複排除
   ├── Cloudflare KV からユーザー嗜好を読み込み
-  ├── Gemini API (gemini-2.0-flash) で TOP 5〜6 件を選定
-  ├── LINE Messaging API (Push Message) でQuick Replyボタン付き送信
+  ├── Gemini API (gemini-2.0-flash) で TOP 5〜7 件を選定
+  ├── LINE Messaging API（Flex Message カルーセル）で送信
   └── 送信した記事リストを Cloudflare KV に書き込み
 
 [Cloudflare Worker (常時稼働・無料)]
   ├── LINE webhookを受信・署名検証
   ├── 「👍1」「👎3」などのテキストをパース
   ├── KVの last_articles から記事情報を照合
-  └── KVの preferences に評価履歴を追記（最大100件）
+  ├── KVの preferences に評価履歴を追記（最大100件）
+  └── エラー時のみ返信（正常時は返信しない・メッセージ数節約）
 ```
 
 ---
@@ -36,7 +37,7 @@ Python スクリプト
 | サービス | 月間使用量 | コスト |
 |---|---|---|
 | GitHub Actions（パブリックリポジトリ） | 30回 × 約2分 | **$0** |
-| LINE Messaging API（月1000通無料） | 30通 | **$0** |
+| LINE Messaging API（月200通無料） | 30通 | **$0** |
 | Gemini API (gemini-2.0-flash) | ~2,000 tokens × 30回 | **$0（無料枠内）** |
 | Cloudflare Workers（100k req/日無料） | 30回/日 | **$0** |
 | Cloudflare KV（100k reads/日, 1k writes/日無料） | 60 ops/日 | **$0** |
@@ -79,7 +80,7 @@ tech-article-fetcher/
 │   │   └── gemini_selector.py   # Gemini API による記事選定（嗜好反映）
 │   ├── notifier/
 │   │   ├── __init__.py
-│   │   └── line_notifier.py     # LINE Push + QuickReply送信
+│   │   └── line_notifier.py     # LINE Push（Flex Message カルーセル送信）
 │   └── storage/
 │       ├── __init__.py
 │       └── preferences.py       # Cloudflare KV 読み書き
@@ -162,28 +163,27 @@ tech-article-fetcher/
 
 ### メッセージ形式
 
-```
-📚 今日の技術記事 (2026/04/05)
+Flex Message カルーセル（横スクロール可能な記事カード一覧）で送信。最大10件。
 
-1. [Zenn] タイトル
-   → 選定理由
-   🔗 URL
-
-2. [Hacker News] タイトル
-   → 選定理由
-   🔗 URL
-   ...（最大6件）
-```
-
-### Quick Reply ボタン
-
-記事リストの下に以下のボタンを表示（最大12アイテム = 6記事×2ボタン）:
+各カードのレイアウト:
 
 ```
-[👍1] [👎1] [👍2] [👎2] [👍3] [👎3] [👍4] [👎4] [👍5] [👎5] [👍6] [👎6]
+┌──────────────────────┐
+│ #1              Zenn │  ← 記事番号（緑）＋ソース名
+├──────────────────────┤
+│ タイトル（太字）      │
+│ 選定理由（グレー小文字）│
+├──────────────────────┤
+│ [👍 Good] [👎 Bad]  │
+│    [🔗 読む]         │
+└──────────────────────┘
 ```
 
-ユーザーがタップ → LINEがメッセージとして送信 → Cloudflare Worker が受信・KVに記録
+- **👍 Good / 👎 Bad**: `MessageAction` でタップ時に `👍N` / `👎N` を送信
+- **🔗 読む**: `URIAction` で記事 URL を直接開く
+- `alt_text`（通知文）: `📚 今日の技術記事 (YYYY/MM/DD) — N 件`
+
+ユーザーがボタンをタップ → LINEがメッセージとして送信 → Cloudflare Worker が受信・KVに記録
 
 ---
 
@@ -238,7 +238,7 @@ historyを集計してGeminiプロンプトに追記:
 4. `KV.get("preferences")` → 既存履歴を取得
 5. フィードバックを追記（最大100件でローテート）
 6. `KV.put("preferences", updatedData)` で保存
-7. 200 OK を返す
+7. 200 OK を返す（正常時は返信しない・エラー時のみ返信してメッセージ数を節約）
 
 ### 環境変数（Cloudflare Secrets）
 
