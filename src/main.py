@@ -2,7 +2,7 @@
 tech-article-fetcher のエントリポイント。
 
 処理フロー:
-  1. RSS / Qiita / HN / Reddit / dev.to を並列フェッチ
+  1. RSS（日本語ブログ・企業ブログ・海外公式ブログ）/ Qiita を並列フェッチ
   2. URL ベースで重複排除
   3. Cloudflare KV からユーザー嗜好を読み込み
   4. Gemini API で上位 5〜6 件を選定（嗜好を反映）
@@ -16,10 +16,7 @@ import sys
 
 from dotenv import load_dotenv
 
-from src.fetchers.devto_fetcher import fetch_devto
-from src.fetchers.hacker_news_fetcher import fetch_hacker_news
 from src.fetchers.qiita_fetcher import fetch_qiita
-from src.fetchers.reddit_fetcher import fetch_reddit
 from src.fetchers.rss_fetcher import fetch_all_rss
 from src.notifier.line_notifier import send_line_message
 from src.selector.gemini_selector import deduplicate, select_articles
@@ -42,14 +39,11 @@ async def main() -> None:
     results = await asyncio.gather(
         fetch_all_rss(),
         fetch_qiita(),
-        fetch_hacker_news(),
-        fetch_reddit(),
-        fetch_devto(),
         return_exceptions=True,
     )
 
     all_articles = []
-    source_names = ["RSS", "Qiita", "Hacker News", "Reddit", "dev.to"]
+    source_names = ["RSS", "Qiita"]
     for name, result in zip(source_names, results):
         if isinstance(result, Exception):
             logger.warning("Source %s raised an exception: %s", name, result)

@@ -63,6 +63,7 @@
   },
   "skipDangerousModePermissionPrompt": true,
   "enabledPlugins": {
-    "caveman@caveman": true
+    "caveman@caveman": true,
+    "example-skills@anthropic-agent-skills": true
   }
 }

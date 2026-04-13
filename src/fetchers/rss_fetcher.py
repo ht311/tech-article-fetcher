@@ -26,6 +26,27 @@ def _parse_published(entry: feedparser.FeedParserDict) -> datetime | None:
     return None
 
 
+def _extract_thumbnail(entry: feedparser.FeedParserDict) -> str | None:
+    """feedparser エントリからサムネイル画像 URL を取得する。"""
+    # media:thumbnail
+    thumbnails = getattr(entry, "media_thumbnail", None)
+    if thumbnails and isinstance(thumbnails, list) and thumbnails[0].get("url"):
+        return thumbnails[0]["url"]
+    # media:content (画像タイプのみ)
+    media_contents = getattr(entry, "media_content", None)
+    if media_contents and isinstance(media_contents, list):
+        for mc in media_contents:
+            if mc.get("url") and mc.get("medium") == "image":
+                return mc["url"]
+    # enclosure (画像タイプのみ)
+    enclosures = getattr(entry, "enclosures", None)
+    if enclosures and isinstance(enclosures, list):
+        for enc in enclosures:
+            if enc.get("url") and str(enc.get("type", "")).startswith("image/"):
+                return enc["url"]
+    return None
+
+
 def _entry_to_article(entry: feedparser.FeedParserDict, source_name: str) -> Article | None:
     """feedparser のエントリを Article に変換する。URL またはタイトルが欠けていたら None を返す。"""
     url = getattr(entry, "link", None)
@@ -38,8 +59,16 @@ def _entry_to_article(entry: feedparser.FeedParserDict, source_name: str) -> Art
     summary = re.sub(r"<[^>]+>", "", summary)[:300]
 
     published_at = _parse_published(entry)
+    thumbnail_url = _extract_thumbnail(entry)
     try:
-        return Article(title=title, url=url, summary=summary, source=source_name, published_at=published_at)
+        return Article(
+            title=title,
+            url=url,
+            summary=summary,
+            source=source_name,
+            published_at=published_at,
+            thumbnail_url=thumbnail_url,
+        )
     except Exception:
         return None
 

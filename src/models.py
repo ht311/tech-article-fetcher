@@ -13,6 +13,7 @@ class Article(BaseModel):
     summary: str = ""
     source: str  # フィード名（例: "Zenn", "GitHub Blog"）
     published_at: datetime | None = None  # 取得できない場合は None
+    thumbnail_url: str | None = None  # OGP等のサムネイル画像URL
 
 
 class SelectedArticle(BaseModel):

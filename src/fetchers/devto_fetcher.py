@@ -23,6 +23,7 @@ def _parse_devto_article(item: dict) -> Article | None:  # type: ignore[type-arg
             published_at = datetime.fromisoformat(published_str.replace("Z", "+00:00"))
 
         description = item.get("description", "") or ""
+        thumbnail_url = item.get("cover_image") or item.get("social_image") or None
 
         return Article(
             title=title,
@@ -30,6 +31,7 @@ def _parse_devto_article(item: dict) -> Article | None:  # type: ignore[type-arg
             summary=description[:300],
             source="dev.to",
             published_at=published_at,
+            thumbnail_url=thumbnail_url,
         )
     except Exception as exc:
         logger.debug("Failed to parse dev.to article: %s", exc)

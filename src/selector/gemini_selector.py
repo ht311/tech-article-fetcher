@@ -7,10 +7,11 @@ import re
 from google import genai
 from google.genai import types
 
-from src.config import GEMINI_MAX_INPUT_ARTICLES, GEMINI_MAX_RETRIES, GEMINI_MODEL, GEMINI_RETRY_BASE_WAIT, PREFERRED_TOPICS, SELECT_MAX, SELECT_MIN
+from src.config import GEMINI_FALLBACK_MODEL, GEMINI_MAX_INPUT_ARTICLES, GEMINI_MAX_RETRIES, GEMINI_MODEL, GEMINI_RETRY_BASE_WAIT, PREFERRED_TOPICS, SELECT_MAX, SELECT_MIN
 from src.models import Article, SelectedArticle, UserPreferences
 
 _RETRY_AFTER_RE = re.compile(r"Please retry in ([\d.]+)s")
+_DAILY_QUOTA_RE = re.compile(r"PerDay")
 
 logger = logging.getLogger(__name__)
 
@@ -95,41 +96,18 @@ def deduplicate(articles: list[Article]) -> list[Article]:
     return unique
 
 
-async def select_articles(
+async def _call_gemini(
+    client: genai.Client,
+    model: str,
+    prompt: str,
+    config: types.GenerateContentConfig,
     articles: list[Article],
-    preferences: UserPreferences | None = None,
 ) -> list[SelectedArticle]:
-    """Gemini API を使って記事リストから上位 5〜6 件を選定する。
-    preferences が指定されている場合はユーザー嗜好をプロンプトに追記する。
-    失敗時は指数バックオフで最大 GEMINI_MAX_RETRIES 回リトライする。
-    """
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        raise EnvironmentError("GEMINI_API_KEY is not set")
-
-    # トークン削減のため Gemini に渡す記事数を上限で絞る
-    if len(articles) > GEMINI_MAX_INPUT_ARTICLES:
-        articles = _prefilter_articles(articles, GEMINI_MAX_INPUT_ARTICLES)
-        logger.info("Pre-filtered to %d articles for Gemini", len(articles))
-
-    client = genai.Client(api_key=api_key)
-
-    # 嗜好サマリーをシステムプロンプトに追記する
-    system_prompt = SYSTEM_PROMPT
-    if preferences:
-        summary = preferences.get_summary()
-        if summary:
-            system_prompt = f"{SYSTEM_PROMPT}\n\n{summary}"
-
-    config = types.GenerateContentConfig(system_instruction=system_prompt)
-
-    article_text = _build_article_list_text(articles)
-    prompt = f"以下の記事リストから5〜6件選んでください:\n\n{article_text}"
-
+    """指定モデルで Gemini を呼び出す。429 日次クォータ枯渇は即例外再送出。"""
     for attempt in range(GEMINI_MAX_RETRIES):
         try:
             response = client.models.generate_content(
-                model=GEMINI_MODEL,
+                model=model,
                 contents=prompt,
                 config=config,
             )
@@ -145,30 +123,65 @@ async def select_articles(
             if len(results) < SELECT_MIN:
                 raise ValueError(f"Too few articles selected: {len(results)}")
 
-            logger.info("Gemini selected %d articles", len(results))
+            logger.info("Gemini (%s) selected %d articles", model, len(results))
             return results
 
         except Exception as exc:
             exc_str = str(exc)
-            # 429 でリトライ時間が指定されている場合はそれを使う
+
+            # 日次クォータ枯渇はリトライ無意味 → 即再送出してモデル切り替えへ
+            if "429" in exc_str and _DAILY_QUOTA_RE.search(exc_str):
+                logger.warning("Gemini (%s) daily quota exhausted", model)
+                raise
+
             m = _RETRY_AFTER_RE.search(exc_str)
-            if m:
-                wait = float(m.group(1)) + 1.0
-            else:
-                wait = GEMINI_RETRY_BASE_WAIT * (2**attempt)
+            wait = float(m.group(1)) + 1.0 if m else GEMINI_RETRY_BASE_WAIT * (2**attempt)
             logger.warning(
-                "Gemini attempt %d/%d failed: %s (retry in %.1fs)",
-                attempt + 1,
-                GEMINI_MAX_RETRIES,
-                exc,
-                wait,
+                "Gemini (%s) attempt %d/%d failed: %s (retry in %.1fs)",
+                model, attempt + 1, GEMINI_MAX_RETRIES, exc, wait,
             )
             if attempt < GEMINI_MAX_RETRIES - 1:
                 await asyncio.sleep(wait)
-            else:
-                logger.warning("All Gemini retries exhausted; falling back to recency-based selection")
-                return _fallback_select(articles)
-    return []  # unreachable
+
+    raise RuntimeError(f"All {GEMINI_MAX_RETRIES} retries exhausted for model {model}")
+
+
+async def select_articles(
+    articles: list[Article],
+    preferences: UserPreferences | None = None,
+) -> list[SelectedArticle]:
+    """Gemini API を使って記事リストから上位 5〜6 件を選定する。
+    日次クォータ枯渇時は GEMINI_FALLBACK_MODEL に即切り替え。
+    全モデル失敗時は recency ベースのフォールバックを返す。
+    """
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise EnvironmentError("GEMINI_API_KEY is not set")
+
+    if len(articles) > GEMINI_MAX_INPUT_ARTICLES:
+        articles = _prefilter_articles(articles, GEMINI_MAX_INPUT_ARTICLES)
+        logger.info("Pre-filtered to %d articles for Gemini", len(articles))
+
+    client = genai.Client(api_key=api_key)
+
+    system_prompt = SYSTEM_PROMPT
+    if preferences:
+        summary = preferences.get_summary()
+        if summary:
+            system_prompt = f"{SYSTEM_PROMPT}\n\n{summary}"
+
+    config = types.GenerateContentConfig(system_instruction=system_prompt)
+    article_text = _build_article_list_text(articles)
+    prompt = f"以下の記事リストから5〜6件選んでください:\n\n{article_text}"
+
+    for model in (GEMINI_MODEL, GEMINI_FALLBACK_MODEL):
+        try:
+            return await _call_gemini(client, model, prompt, config, articles)
+        except Exception as exc:
+            logger.warning("Gemini model %s unavailable: %s", model, exc)
+
+    logger.warning("All Gemini models exhausted; falling back to recency-based selection")
+    return _fallback_select(articles)
 
 
 def _fallback_select(articles: list[Article]) -> list[SelectedArticle]:

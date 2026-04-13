@@ -12,8 +12,7 @@ RSS_SOURCES: list[dict[str, str]] = [
     {"name": "DeNA", "url": "https://engineering.dena.com/blog/index.xml"},
     {"name": "SmartHR", "url": "https://tech.smarthr.jp/feed"},
     {"name": "LayerX", "url": "https://tech.layerx.co.jp/feed"},
-    # 海外技術記事
-    {"name": "dev.to", "url": "https://dev.to/feed"},
+    # 海外公式テックブログ
     {"name": "GitHub Blog", "url": "https://github.blog/feed/"},
     {"name": "AWS Blog", "url": "https://aws.amazon.com/blogs/aws/feed/"},
     {"name": "Cloudflare Blog", "url": "https://blog.cloudflare.com/rss/"},
@@ -43,6 +42,8 @@ QIITA_PER_PAGE = 10              # タグ別は件数を抑える（タグ数×1
 
 # 使用する Gemini モデル（無料枠あり・高速）
 GEMINI_MODEL = "gemini-2.0-flash"
+# 日次クォータ枯渇時のフォールバックモデル（別クォータプール）
+GEMINI_FALLBACK_MODEL = "gemini-2.0-flash-lite"
 
 # 直近何時間の記事を対象にするか
 ARTICLE_FETCH_HOURS = 24
