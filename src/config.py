@@ -82,3 +82,13 @@ REDDIT_PER_PAGE = 25
 DEVTO_API_URL = "https://dev.to/api/articles"
 DEVTO_TOP_PERIOD = 7    # 過去N日のトレンド
 DEVTO_PER_PAGE = 20
+
+# SpeakerDeck カテゴリフィード（/c/<category>.atom）
+# /trending.atom / /popular.atom はエントリ空のため不使用
+SPEAKERDECK_CATEGORIES: list[str] = [
+    "programming",
+    "science",
+    "business",
+    "education",
+    "design",
+]

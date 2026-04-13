@@ -18,6 +18,7 @@ from dotenv import load_dotenv
 
 from src.fetchers.qiita_fetcher import fetch_qiita
 from src.fetchers.rss_fetcher import fetch_all_rss
+from src.fetchers.speakerdeck_fetcher import fetch_speakerdeck
 from src.notifier.line_notifier import send_line_message
 from src.selector.gemini_selector import deduplicate, select_articles
 from src.storage.preferences import get_preferences, write_last_articles
@@ -39,11 +40,12 @@ async def main() -> None:
     results = await asyncio.gather(
         fetch_all_rss(),
         fetch_qiita(),
+        fetch_speakerdeck(),
         return_exceptions=True,
     )
 
     all_articles = []
-    source_names = ["RSS", "Qiita"]
+    source_names = ["RSS", "Qiita", "SpeakerDeck"]
     for name, result in zip(source_names, results):
         if isinstance(result, Exception):
             logger.warning("Source %s raised an exception: %s", name, result)
