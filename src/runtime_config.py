@@ -14,6 +14,16 @@ class RuntimeConfig(BaseModel):
     include_keywords: list[str]
 
 
+def _merge_with_defaults(sources: list[SourceDef]) -> list[SourceDef]:
+    """KV に登録されていないデフォルトソースを enabled=True で補完する。
+    settings.sources が部分的に保存された場合でも全ソースを取得できるようにする。
+    """
+    existing_names = {s.name for s in sources}
+    defaults = [SourceDef.model_validate(s) for s in config.default_sources()]
+    extras = [s for s in defaults if s.name not in existing_names]
+    return sources + extras
+
+
 def _apply_sources_enabled(
     sources: list[SourceDef], sources_enabled: dict[str, bool]
 ) -> list[SourceDef]:
@@ -43,7 +53,7 @@ def _apply_categories_flag(
 def build_runtime_config(settings: UserSettings) -> RuntimeConfig:
     # --- sources ---
     if settings.sources is not None:
-        raw_sources = list(settings.sources)
+        raw_sources = _merge_with_defaults(list(settings.sources))
     else:
         raw_sources = [SourceDef.model_validate(s) for s in config.default_sources()]
 

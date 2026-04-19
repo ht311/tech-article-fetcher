@@ -11,7 +11,7 @@ def _default_cat_count() -> int:
     return len([c for c in config.default_category_defs() if c.get("enabled", True)])
 
 
-# (a) v2 sources + category_defs only → used directly (only enabled ones)
+# (a) v2 sources → merged with defaults; disabled entries remain excluded
 def test_v2_sources_filters_disabled() -> None:
     settings = UserSettings(
         sources=[
@@ -28,8 +28,11 @@ def test_v2_sources_filters_disabled() -> None:
         ],
     )
     rc = build_runtime_config(settings)
-    assert len(rc.sources) == 1
-    assert rc.sources[0].name == "SourceA"
+    # SourceA (enabled) + all defaults (enabled); SourceB (disabled) is excluded
+    source_names = [s.name for s in rc.sources]
+    assert "SourceA" in source_names
+    assert "SourceB" not in source_names
+    assert len(rc.sources) == 1 + _default_src_count()
     assert len(rc.category_defs) == 1
     assert rc.category_defs[0].id == "backend"
 
@@ -74,9 +77,11 @@ def test_v2_sources_with_v1_sources_enabled_overlay() -> None:
         sources_enabled={"SourceA": False},
     )
     rc = build_runtime_config(settings)
+    # SourceA disabled via overlay; SourceB + all defaults remain enabled
     assert all(s.name != "SourceA" for s in rc.sources)
-    assert len(rc.sources) == 1
-    assert rc.sources[0].name == "SourceB"
+    source_names = [s.name for s in rc.sources]
+    assert "SourceB" in source_names
+    assert len(rc.sources) == 1 + _default_src_count()
 
 
 def test_v2_category_defs_with_v1_categories_overlay() -> None:
