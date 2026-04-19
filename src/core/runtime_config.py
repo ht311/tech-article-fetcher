@@ -50,6 +50,19 @@ def _apply_categories_flag(
     ]
 
 
+def build_default_user_settings() -> UserSettings:
+    """src/core/config.py のデフォルト定義から UserSettings v2 を生成する。
+    KV の default_settings キーに書き込むためのスナップショットとして使う。
+    """
+    return UserSettings(
+        schema_version=2,
+        sources=[SourceDef.model_validate(s) for s in config.default_sources()],
+        category_defs=[CategoryDef.model_validate(c) for c in config.default_category_defs()],
+        categories={},
+        sources_enabled={},
+    )
+
+
 def build_runtime_config(settings: UserSettings) -> RuntimeConfig:
     # --- sources ---
     if settings.sources is not None:

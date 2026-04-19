@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useCategories, categoryLabel } from "./lib/useCategories";
 
 interface StatsData {
   totalGood: number;
@@ -17,15 +18,8 @@ interface ArticlesData {
   articles: Record<string, { title: string; source: string; url: string; category_id: string | null }[]>;
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  backend: "バックエンド",
-  frontend: "フロントエンド",
-  aws: "AWS",
-  management: "マネジメント",
-  others: "その他",
-};
-
 export default function HomePage() {
+  const categories = useCategories();
   const [stats, setStats] = useState<StatsData | null>(null);
   const [today, setToday] = useState<{ date: string; articles: ArticlesData["articles"][string] } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -94,7 +88,7 @@ export default function HomePage() {
                 className="block bg-white border border-gray-200 rounded-lg px-4 py-3 hover:border-blue-300 transition-colors"
               >
                 <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
-                  <span>{CATEGORY_LABELS[a.category_id ?? "others"] ?? a.category_id}</span>
+                  <span>{categoryLabel(categories, a.category_id)}</span>
                   <span>·</span>
                   <span>{a.source}</span>
                 </div>

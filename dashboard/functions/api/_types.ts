@@ -43,18 +43,10 @@ export interface UserSettings {
   schema_version?: 1 | 2;
 }
 
-export const DEFAULT_SETTINGS: UserSettings = {
-  categories: {
-    backend: true,
-    frontend: true,
-    aws: true,
-    management: true,
-    others: true,
-  },
-  sources_enabled: {},
-  max_per_category: 5,
-  exclude_keywords: [],
-  include_keywords: [],
-};
-
 export const VALID_SOURCE_TYPES: SourceDef["type"][] = ["rss", "qiita", "speakerdeck"];
+
+export const TYPE_LABELS: Record<SourceDef["type"], string> = {
+  rss: "RSS",
+  qiita: "Qiita",
+  speakerdeck: "SpeakerDeck",
+};

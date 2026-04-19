@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useCategories, categoryLabel } from "../lib/useCategories";
 import {
   BarChart,
   Bar,
@@ -23,17 +24,10 @@ interface StatsData {
   categoryCount: Record<string, number>;
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  backend: "バックエンド",
-  frontend: "フロントエンド",
-  aws: "AWS",
-  management: "マネジメント",
-  others: "その他",
-};
-
 const PIE_COLORS = ["#3b82f6", "#8b5cf6", "#f97316", "#22c55e", "#94a3b8"];
 
 export default function StatsPage() {
+  const categories = useCategories();
   const [stats, setStats] = useState<StatsData | null>(null);
 
   useEffect(() => {
@@ -56,7 +50,7 @@ export default function StatsPage() {
     .slice(0, 10);
 
   const categoryData = Object.entries(stats.categoryCount).map(([id, count]) => ({
-    name: CATEGORY_LABELS[id] ?? id,
+    name: categoryLabel(categories, id),
     value: count,
   }));
 

@@ -23,6 +23,10 @@ dev = [
     "mypy>=1.11.0",
 ]
 
+[project.scripts]
+tech-article-fetcher = "src.cli.main:main"
+tech-article-fetcher-seed = "src.cli.seed:main"
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["src*"]

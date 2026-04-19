@@ -1,4 +1,5 @@
 import type { Env, ArticleHistoryEntry } from "./_types";
+import { KV_PREFERENCES, KV_ARTICLE_INDEX, articleHistoryKey } from "./_kv_keys";
 
 interface FeedbackEntry {
   action: "good" | "bad";
@@ -8,8 +9,8 @@ interface FeedbackEntry {
 
 export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
   const [prefsRaw, indexRaw] = await Promise.all([
-    env.KV.get("preferences"),
-    env.KV.get("article_index"),
+    env.KV.get(KV_PREFERENCES),
+    env.KV.get(KV_ARTICLE_INDEX),
   ]);
 
   const prefs = prefsRaw ? JSON.parse(prefsRaw) : { history: [] };
@@ -46,7 +47,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
     const index = JSON.parse(indexRaw) as { dates: string[] };
     const recentDates = index.dates.slice(0, 7);
     const articleBatches = await Promise.all(
-      recentDates.map((d) => env.KV.get(`articles:${d}`))
+      recentDates.map((d) => env.KV.get(articleHistoryKey(d)))
     );
     for (const raw of articleBatches) {
       if (!raw) continue;

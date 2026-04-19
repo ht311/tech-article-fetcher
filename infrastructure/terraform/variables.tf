@@ -20,3 +20,8 @@ variable "line_channel_access_token" {
   type        = string
   sensitive   = true
 }
+
+variable "owner_email" {
+  description = "オーナーのメールアドレス"
+  type        = string
+}

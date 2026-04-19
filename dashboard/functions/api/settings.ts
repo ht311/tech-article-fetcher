@@ -1,5 +1,14 @@
 import type { Env, UserSettings, SourceDef, CategoryDef } from "./_types";
-import { DEFAULT_SETTINGS, VALID_SOURCE_TYPES } from "./_types";
+import { VALID_SOURCE_TYPES } from "./_types";
+import { KV_SETTINGS } from "./_kv_keys";
+
+const EMPTY_SETTINGS: UserSettings = {
+  categories: {},
+  sources_enabled: {},
+  max_per_category: 5,
+  exclude_keywords: [],
+  include_keywords: [],
+};
 
 export type ValidationError = string;
 
@@ -52,8 +61,8 @@ export function validateSettings(body: Partial<UserSettings>): ValidationError |
 }
 
 export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
-  const raw = await env.KV.get("settings");
-  if (!raw) return Response.json(DEFAULT_SETTINGS);
+  const raw = await env.KV.get(KV_SETTINGS);
+  if (!raw) return Response.json(EMPTY_SETTINGS);
   return new Response(raw, {
     headers: { "Content-Type": "application/json" },
   });
@@ -70,8 +79,8 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env }) => {
   const error = validateSettings(body);
   if (error) return new Response(error, { status: 400 });
 
-  const current = await env.KV.get("settings");
-  const existing: UserSettings = current ? JSON.parse(current) : { ...DEFAULT_SETTINGS };
+  const current = await env.KV.get(KV_SETTINGS);
+  const existing: UserSettings = current ? JSON.parse(current) : { ...EMPTY_SETTINGS };
   const merged: UserSettings = { ...existing, ...body };
 
   // 透過的 v1→v2 マイグレーション: sources / category_defs が未設定なら schema_version を 1 のまま維持
@@ -81,6 +90,6 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env }) => {
     merged.schema_version = 1;
   }
 
-  await env.KV.put("settings", JSON.stringify(merged));
+  await env.KV.put(KV_SETTINGS, JSON.stringify(merged));
   return Response.json(merged);
 };

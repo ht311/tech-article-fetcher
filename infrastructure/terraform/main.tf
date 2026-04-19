@@ -29,7 +29,7 @@ resource "cloudflare_workers_kv_namespace" "preferences" {
 resource "cloudflare_workers_script" "webhook" {
   account_id = var.cloudflare_account_id
   name       = "tech-article-fetcher-webhook"
-  content    = file("${path.module}/../cloudflare/src/index.js")
+  content    = file("${path.module}/../cloudflare/index.js")
 
   # ES Modules 形式を使用する
   module = true

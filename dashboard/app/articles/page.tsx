@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useCategories, categoryLabel } from "../lib/useCategories";
 
 interface Article {
   title: string;
@@ -17,14 +18,6 @@ interface ArticlesData {
   articles: Record<string, Article[]>;
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  backend: "バックエンド",
-  frontend: "フロントエンド",
-  aws: "AWS",
-  management: "マネジメント",
-  others: "その他",
-};
-
 const CATEGORY_COLORS: Record<string, string> = {
   backend: "bg-blue-100 text-blue-700",
   frontend: "bg-purple-100 text-purple-700",
@@ -38,6 +31,7 @@ function toISODate(d: Date) {
 }
 
 export default function ArticlesPage() {
+  const categories = useCategories();
   const today = toISODate(new Date());
   const thirtyDaysAgo = toISODate(new Date(Date.now() - 30 * 86400_000));
 
@@ -150,7 +144,7 @@ export default function ArticlesPage() {
                           CATEGORY_COLORS[a.category_id ?? "others"]
                         }`}
                       >
-                        {CATEGORY_LABELS[a.category_id ?? "others"]}
+                        {categoryLabel(categories, a.category_id)}
                       </span>
                       <span className="text-xs text-gray-400">{a.source}</span>
                     </div>

@@ -20,7 +20,7 @@ from datetime import UTC, datetime
 from dotenv import load_dotenv
 
 from src.core.models import Article
-from src.core.runtime_config import build_runtime_config
+from src.core.runtime_config import build_default_user_settings, build_runtime_config
 from src.services.fetchers.qiita_fetcher import fetch_qiita
 from src.services.fetchers.rss_fetcher import fetch_all_rss
 from src.services.fetchers.speakerdeck_fetcher import fetch_speakerdeck
@@ -31,6 +31,7 @@ from src.services.storage.preferences import (
     get_preferences,
     get_settings,
     write_article_history,
+    write_default_settings,
     write_last_articles,
 )
 
@@ -45,6 +46,9 @@ async def main() -> None:
     load_dotenv()
 
     logger.info("Starting tech-article-fetcher")
+
+    # デフォルト設定を KV に seed する（config.py 変更を即反映）
+    await write_default_settings(build_default_user_settings())
 
     settings = await get_settings()
     rc = build_runtime_config(settings)
@@ -113,8 +117,8 @@ async def main() -> None:
 
     today = datetime.now(UTC).strftime("%Y-%m-%d")
     await asyncio.gather(
-        write_last_articles(selections),
-        write_article_history(today, selections),
+        write_last_articles(selections, rc.category_defs),
+        write_article_history(today, selections, rc.category_defs),
     )
     logger.info("Done.")
 

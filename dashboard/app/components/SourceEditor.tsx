@@ -1,25 +1,13 @@
 "use client";
 
 import { useState } from "react";
-
-export interface SourceDef {
-  name: string;
-  type: "rss" | "qiita" | "speakerdeck";
-  url?: string;
-  params?: Record<string, string | number | string[]>;
-  enabled: boolean;
-}
+import type { SourceDef } from "../../functions/api/_types";
+import { TYPE_LABELS } from "../../functions/api/_types";
 
 interface SourceEditorProps {
   sources: SourceDef[];
   onChange: (sources: SourceDef[]) => void;
 }
-
-const TYPE_LABELS: Record<SourceDef["type"], string> = {
-  rss: "RSS",
-  qiita: "Qiita",
-  speakerdeck: "SpeakerDeck",
-};
 
 function SourceRow({
   src,
@@ -88,7 +76,7 @@ export default function SourceEditor({ sources, onChange }: SourceEditorProps) {
     onChange([...sources, base]);
   };
 
-  const groups: SourceDef["type"][] = ["rss", "qiita", "speakerdeck"];
+  const groups: Array<SourceDef["type"]> = ["rss", "qiita", "speakerdeck"];
 
   return (
     <div className="space-y-4">

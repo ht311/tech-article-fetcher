@@ -15,17 +15,24 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 
-from src.core.models import ArticleFeedback, SelectedArticle, UserPreferences, UserSettings
+from src.core.constants import ARTICLE_RETENTION_DAYS, MAX_HISTORY
+from src.core.kv_keys import (
+    KV_ARTICLE_HISTORY_PREFIX,
+    KV_ARTICLE_INDEX,
+    KV_DEFAULT_SETTINGS,
+    KV_LAST_ARTICLES,
+    KV_PREFERENCES,
+    KV_SETTINGS,
+)
+from src.core.models import (
+    ArticleFeedback,
+    CategoryDef,
+    SelectedArticle,
+    UserPreferences,
+    UserSettings,
+)
 
 logger = logging.getLogger(__name__)
-
-_KV_PREFERENCES_KEY = "preferences"
-_KV_LAST_ARTICLES_KEY = "last_articles"
-_KV_SETTINGS_KEY = "settings"
-_KV_ARTICLE_INDEX_KEY = "article_index"
-_KV_ARTICLE_HISTORY_PREFIX = "articles:"
-_MAX_HISTORY = 100
-_MAX_ARTICLE_HISTORY_DAYS = 90
 
 
 def _kv_base_url() -> str | None:
@@ -57,7 +64,7 @@ async def get_preferences() -> UserPreferences:
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"{base_url}/{_KV_PREFERENCES_KEY}",
+                f"{base_url}/{KV_PREFERENCES}",
                 headers=_auth_headers(),
                 timeout=10,
             )
@@ -73,13 +80,12 @@ async def get_preferences() -> UserPreferences:
 
 async def write_last_articles(
     articles: list[SelectedArticle] | dict[str, list[SelectedArticle]],
+    category_defs: list[CategoryDef] | None = None,
 ) -> None:
     """送信した記事リストを KV に保存する。
     Cloudflare Worker が「👍N」フィードバック受信時に記事情報を照合するために使う。
-    dict[category_id, list] を渡した場合は CATEGORIES 順にフラット化する。
+    dict[category_id, list] を渡した場合は category_defs 順にフラット化する。
     """
-    from src.core.config import CATEGORIES
-
     base_url = _kv_base_url()
     if not base_url:
         logger.debug("Cloudflare KV not configured. Skipping last_articles write.")
@@ -88,8 +94,12 @@ async def write_last_articles(
     flat: list[SelectedArticle]
     if isinstance(articles, dict):
         flat = []
-        for cat in CATEGORIES:
-            flat.extend(articles.get(cat["id"], []))
+        if category_defs is not None:
+            for cat in category_defs:
+                flat.extend(articles.get(cat.id, []))
+        else:
+            for items in articles.values():
+                flat.extend(items)
     else:
         flat = articles
 
@@ -105,13 +115,13 @@ async def write_last_articles(
     try:
         async with httpx.AsyncClient() as client:
             response = await client.put(
-                f"{base_url}/{_KV_LAST_ARTICLES_KEY}",
+                f"{base_url}/{KV_LAST_ARTICLES}",
                 headers={**_auth_headers(), "Content-Type": "application/json"},
                 content=json.dumps(data),
                 timeout=10,
             )
         response.raise_for_status()
-        logger.info("Wrote last_articles to KV (%d articles)", len(articles))
+        logger.info("Wrote last_articles to KV (%d articles)", len(flat))
     except Exception as exc:
         logger.warning("Failed to write last_articles to KV: %s", exc)
 
@@ -125,7 +135,7 @@ async def get_settings() -> UserSettings:
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"{base_url}/{_KV_SETTINGS_KEY}",
+                f"{base_url}/{KV_SETTINGS}",
                 headers=_auth_headers(),
                 timeout=10,
             )
@@ -138,24 +148,46 @@ async def get_settings() -> UserSettings:
         return UserSettings()
 
 
+async def write_default_settings(settings: UserSettings) -> None:
+    """src/core/config.py のデフォルト設定を KV の default_settings キーに保存する。
+    dashboard の「ソースを初期化する」ボタンがこのキーを参照する。
+    """
+    base_url = _kv_base_url()
+    if not base_url:
+        logger.debug("Cloudflare KV not configured. Skipping default_settings write.")
+        return
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.put(
+                f"{base_url}/{KV_DEFAULT_SETTINGS}",
+                headers={**_auth_headers(), "Content-Type": "application/json"},
+                content=settings.model_dump_json(),
+                timeout=10,
+            )
+        response.raise_for_status()
+        logger.info("Wrote default_settings to KV")
+    except Exception as exc:
+        logger.warning("Failed to write default_settings to KV: %s", exc)
+
+
 async def write_article_history(
     date: str,
     selections: dict[str, list[SelectedArticle]],
+    category_defs: list[CategoryDef] | None = None,
 ) -> None:
     """配信した記事を日付キーで KV に保存し、article_index を更新する。
     90日より古い日付エントリは index から削除し、対応する KV キーも消す。
     """
-    from src.core.config import CATEGORIES
-
     base_url = _kv_base_url()
     if not base_url:
         logger.debug("Cloudflare KV not configured. Skipping article_history write.")
         return
 
-    # 日別記事データを構築
+    # 日別記事データを構築 (category_defs 順、未指定なら dict 順)
     flat: list[dict[str, object]] = []
-    for cat in CATEGORIES:
-        for sa in selections.get(cat["id"], []):
+    cat_ids = [c.id for c in category_defs] if category_defs else list(selections.keys())
+    for cat_id in cat_ids:
+        for sa in selections.get(cat_id, []):
             flat.append({
                 "title": sa.article.title,
                 "source": sa.article.source,
@@ -172,7 +204,7 @@ async def write_article_history(
         # 日別記事を保存
         try:
             r = await client.put(
-                f"{base_url}/{_KV_ARTICLE_HISTORY_PREFIX}{date}",
+                f"{base_url}/{KV_ARTICLE_HISTORY_PREFIX}{date}",
                 headers={**_auth_headers(), "Content-Type": "application/json"},
                 content=json.dumps(flat),
                 timeout=10,
@@ -185,7 +217,7 @@ async def write_article_history(
         # article_index を更新
         try:
             idx_resp = await client.get(
-                f"{base_url}/{_KV_ARTICLE_INDEX_KEY}",
+                f"{base_url}/{KV_ARTICLE_INDEX}",
                 headers=_auth_headers(),
                 timeout=10,
             )
@@ -203,14 +235,14 @@ async def write_article_history(
             dates.append(date)
 
         cutoff = (
-            datetime.now(UTC) - timedelta(days=_MAX_ARTICLE_HISTORY_DAYS)
+            datetime.now(UTC) - timedelta(days=ARTICLE_RETENTION_DAYS)
         ).strftime("%Y-%m-%d")
         expired = [d for d in dates if d < cutoff]
         dates = [d for d in dates if d >= cutoff]
 
         try:
             r = await client.put(
-                f"{base_url}/{_KV_ARTICLE_INDEX_KEY}",
+                f"{base_url}/{KV_ARTICLE_INDEX}",
                 headers={**_auth_headers(), "Content-Type": "application/json"},
                 content=json.dumps({"dates": sorted(dates, reverse=True)}),
                 timeout=10,
@@ -223,7 +255,7 @@ async def write_article_history(
         for old_date in expired:
             try:
                 await client.delete(
-                    f"{base_url}/{_KV_ARTICLE_HISTORY_PREFIX}{old_date}",
+                    f"{base_url}/{KV_ARTICLE_HISTORY_PREFIX}{old_date}",
                     headers=_auth_headers(),
                     timeout=10,
                 )
@@ -251,13 +283,13 @@ async def append_feedback(action: str, title: str, source: str, url: str) -> Non
     )
     prefs.history.append(feedback)
     # 最大件数を超えた場合は古いものを削除
-    if len(prefs.history) > _MAX_HISTORY:
-        prefs.history = prefs.history[-_MAX_HISTORY:]
+    if len(prefs.history) > MAX_HISTORY:
+        prefs.history = prefs.history[-MAX_HISTORY:]
 
     try:
         async with httpx.AsyncClient() as client:
             response = await client.put(
-                f"{base_url}/{_KV_PREFERENCES_KEY}",
+                f"{base_url}/{KV_PREFERENCES}",
                 headers={**_auth_headers(), "Content-Type": "application/json"},
                 content=prefs.model_dump_json(),
                 timeout=10,

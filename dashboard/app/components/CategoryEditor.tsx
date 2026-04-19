@@ -1,14 +1,7 @@
 "use client";
 
 import { useState } from "react";
-
-export interface CategoryDef {
-  id: string;
-  name: string;
-  keywords: string[];
-  enabled: boolean;
-  order: number;
-}
+import type { CategoryDef } from "../../functions/api/_types";
 
 interface CategoryEditorProps {
   categories: CategoryDef[];

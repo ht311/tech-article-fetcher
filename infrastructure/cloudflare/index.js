@@ -13,6 +13,7 @@
  * Cloudflare Secret: LINE_CHANNEL_SECRET, LINE_CHANNEL_ACCESS_TOKEN
  */
 
+// These values must match src/core/constants.py (MAX_HISTORY) and src/core/kv_keys.py (key names).
 const MAX_HISTORY = 100;
 const FEEDBACK_RE = /^([👍👎])(\d+)$/u;
 const LINE_REPLY_URL = "https://api.line.me/v2/bot/message/reply";

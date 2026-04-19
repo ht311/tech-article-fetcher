@@ -1,22 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import CategoryEditor, { type CategoryDef } from "../components/CategoryEditor";
-import SourceEditor, { type SourceDef } from "../components/SourceEditor";
+import CategoryEditor from "../components/CategoryEditor";
+import SourceEditor from "../components/SourceEditor";
+import type { SourceDef, UserSettings } from "../../functions/api/_types";
 import ParamsEditor from "../components/ParamsEditor";
-
-interface UserSettings {
-  categories: Record<string, boolean>;
-  sources_enabled: Record<string, boolean>;
-  max_per_category: number;
-  exclude_keywords: string[];
-  include_keywords: string[];
-  sources?: SourceDef[];
-  category_defs?: CategoryDef[];
-  article_fetch_hours?: number;
-  gemini_max_input_per_category?: number;
-  schema_version?: 1 | 2;
-}
 
 type Tab = "categories" | "sources" | "params" | "keywords";
 
@@ -175,18 +163,15 @@ export default function SettingsPage() {
                   ソースを管理するには初期化してください。
                 </p>
                 <button
-                  onClick={() =>
-                    setSettings({
-                      ...settings,
-                      sources: [
-                        { name: "Zenn", type: "rss", url: "https://zenn.dev/feed", enabled: true },
-                        { name: "Qiita人気記事", type: "rss", url: "https://qiita.com/popular-items/feed", enabled: true },
-                        { name: "GitHub Blog", type: "rss", url: "https://github.blog/feed/", enabled: true },
-                        { name: "Qiita:TypeScript", type: "qiita", params: { tag: "TypeScript" }, enabled: true },
-                        { name: "SpeakerDeck:programming", type: "speakerdeck", params: { category: "programming" }, enabled: true },
-                      ],
-                    })
-                  }
+                  onClick={async () => {
+                    const res = await fetch("/api/defaults");
+                    if (!res.ok) {
+                      alert("デフォルトが未 seed です。python -m src.seed を実行してください。");
+                      return;
+                    }
+                    const defaults = await res.json() as { sources?: SourceDef[] };
+                    setSettings({ ...settings, sources: defaults.sources ?? [] });
+                  }}
                   className="px-3 py-1.5 bg-blue-50 text-blue-700 text-sm rounded hover:bg-blue-100"
                 >
                   ソースを初期化する
