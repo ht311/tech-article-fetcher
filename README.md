@@ -44,73 +44,17 @@ Cloudflare Pages（ダッシュボード・常時稼働・無料）
   └── HTTP Basic Auth（DASHBOARD_SECRET 環境変数でパスワード保護）
 ```
 
-## ファイル構成
+## ディレクトリ構成
 
 ```
 tech-article-fetcher/
-├── .devcontainer/
-│   ├── devcontainer.json
-│   └── Dockerfile
-├── .github/
-│   └── workflows/
-│       ├── daily-fetch.yml        # 毎朝 JST 8:00 記事収集・配信
-│       └── dashboard-deploy.yml   # dashboard/ 変更時に Cloudflare Pages へデプロイ
-├── cloudflare/
-│   └── src/
-│       └── index.js               # LINE Webhook ハンドラー（Cloudflare Worker）
-├── dashboard/                     # Web ダッシュボード（Next.js + Tailwind）
-│   ├── app/
-│   │   ├── layout.tsx             # 共通レイアウト・ナビゲーション
-│   │   ├── page.tsx               # ホーム（今日の配信・高評価ソース）
-│   │   ├── articles/page.tsx      # 過去記事一覧（日付別）
-│   │   ├── stats/page.tsx         # 統計グラフ（Recharts）
-│   │   └── settings/page.tsx      # 配信設定フォーム
-│   ├── functions/
-│   │   ├── _middleware.ts         # HTTP Basic Auth
-│   │   └── api/
-│   │       ├── _types.ts          # 共通型定義
-│   │       ├── articles.ts        # GET /api/articles
-│   │       ├── preferences.ts     # GET /api/preferences
-│   │       ├── settings.ts        # GET / PUT /api/settings
-│   │       └── stats.ts           # GET /api/stats
-│   ├── next.config.ts             # output: 'export'（静的書き出し）
-│   └── package.json
-├── terraform/
-│   ├── main.tf                    # Cloudflare リソース定義
-│   ├── variables.tf
-│   ├── outputs.tf
-│   └── terraform.tfvars.example
-├── src/
-│   ├── __init__.py
-│   ├── main.py                    # エントリーポイント・オーケストレーション
-│   ├── config.py                  # ソース一覧・定数
-│   ├── models.py                  # Pydantic データモデル
-│   ├── fetchers/
-│   │   ├── __init__.py
-│   │   ├── rss_fetcher.py         # RSS/Atom フィード取得（13フィード）
-│   │   ├── qiita_fetcher.py       # Qiita API（タグ別並列 + 人気記事）
-│   │   ├── devto_fetcher.py       # dev.to API（週間トップ）
-│   │   ├── hacker_news_fetcher.py # Hacker News Firebase API
-│   │   ├── reddit_fetcher.py      # Reddit JSON API（7 サブレディット）
-│   │   └── speakerdeck_fetcher.py # SpeakerDeck Atom（日本語スライドのみ）
-│   ├── selector/
-│   │   ├── __init__.py
-│   │   ├── categorizer.py         # キーワードマッチングによるカテゴリ分類
-│   │   └── gemini_selector.py     # Gemini API による記事選定（カテゴリ別並列）
-│   ├── notifier/
-│   │   ├── __init__.py
-│   │   └── line_notifier.py       # LINE Push（カテゴリ別 Flex Message）
-│   └── storage/
-│       ├── __init__.py
-│       └── preferences.py         # Cloudflare KV 読み書き
-├── tests/
-│   ├── test_fetchers.py
-│   ├── test_selector.py
-│   ├── test_notifier.py
-│   └── test_settings.py           # UserSettings・フィルタロジック
-├── .env.example
-├── pyproject.toml
-└── README.md
+├── .devcontainer/   # 開発コンテナ設定
+├── .github/         # GitHub Actions ワークフロー
+├── cloudflare/      # LINE Webhook ハンドラー（Cloudflare Worker）
+├── dashboard/       # Web ダッシュボード（Next.js + Tailwind）
+├── terraform/       # Cloudflare インフラ定義
+├── src/             # Python バックエンド（記事収集・選定・配信）
+└── tests/           # テスト
 ```
 
 ## セットアップ
