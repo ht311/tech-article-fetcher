@@ -7,14 +7,14 @@ import re
 from google import genai
 from google.genai import types
 
-from src.config import (
+from src.core.config import (
     GEMINI_FALLBACK_MODEL,
     GEMINI_MAX_RETRIES,
     GEMINI_MODEL,
     GEMINI_RETRY_BASE_WAIT,
     SELECT_MAX_PER_CATEGORY,
 )
-from src.models import Article, CategoryDef, SelectedArticle, UserPreferences
+from src.core.models import Article, CategoryDef, SelectedArticle, UserPreferences
 
 _RETRY_AFTER_RE = re.compile(r"Please retry in ([\d.]+)s")
 _DAILY_QUOTA_RE = re.compile(r"PerDay")

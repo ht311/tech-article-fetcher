@@ -13,7 +13,7 @@ from datetime import UTC, datetime, timedelta
 import feedparser
 import httpx
 
-from src.models import Article, SourceDef
+from src.core.models import Article, SourceDef
 
 logger = logging.getLogger(__name__)
 

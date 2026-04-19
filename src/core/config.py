@@ -124,7 +124,7 @@ SPEAKERDECK_CATEGORIES: list[str] = [
 
 def default_sources() -> list[dict[str, object]]:
     """RSS_SOURCES / QIITA_TAGS / SPEAKERDECK_CATEGORIES を SourceDef 形式で返す。"""
-    from src.models import SourceDef  # 循環 import 回避
+    from src.core.models import SourceDef  # 循環 import 回避
 
     sources: list[SourceDef] = []
     for i, s in enumerate(RSS_SOURCES):
@@ -142,7 +142,7 @@ def default_sources() -> list[dict[str, object]]:
 
 def default_category_defs() -> list[dict[str, object]]:
     """CATEGORIES を CategoryDef 形式で返す。"""
-    from src.models import CategoryDef  # 循環 import 回避
+    from src.core.models import CategoryDef  # 循環 import 回避
 
     defs: list[CategoryDef] = []
     for i, c in enumerate(CATEGORIES):

@@ -1,6 +1,6 @@
-from src import config
-from src.models import CategoryDef, SourceDef, UserSettings
-from src.runtime_config import RuntimeConfig, build_runtime_config
+from src.core import config
+from src.core.models import CategoryDef, SourceDef, UserSettings
+from src.core.runtime_config import RuntimeConfig, build_runtime_config
 
 
 def _default_src_count() -> int:

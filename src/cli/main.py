@@ -19,15 +19,15 @@ from datetime import UTC, datetime
 
 from dotenv import load_dotenv
 
-from src.fetchers.qiita_fetcher import fetch_qiita
-from src.fetchers.rss_fetcher import fetch_all_rss
-from src.fetchers.speakerdeck_fetcher import fetch_speakerdeck
-from src.models import Article
-from src.notifier.line_notifier import send_category_messages
-from src.runtime_config import build_runtime_config
-from src.selector.categorizer import bucket_articles
-from src.selector.gemini_selector import deduplicate, select_articles_by_category
-from src.storage.preferences import (
+from src.core.models import Article
+from src.core.runtime_config import build_runtime_config
+from src.services.fetchers.qiita_fetcher import fetch_qiita
+from src.services.fetchers.rss_fetcher import fetch_all_rss
+from src.services.fetchers.speakerdeck_fetcher import fetch_speakerdeck
+from src.services.notifier.line_notifier import send_category_messages
+from src.services.selector.categorizer import bucket_articles
+from src.services.selector.gemini_selector import deduplicate, select_articles_by_category
+from src.services.storage.preferences import (
     get_preferences,
     get_settings,
     write_article_history,

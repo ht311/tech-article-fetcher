@@ -3,8 +3,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.models import Article, CategoryDef, SelectedArticle
-from src.notifier.line_notifier import _build_category_flex_message, send_category_messages
+from src.core.models import Article, CategoryDef, SelectedArticle
+from src.services.notifier.line_notifier import _build_category_flex_message, send_category_messages
 
 _DEFAULT_CATS = [
     CategoryDef(id="backend", name="バックエンド", keywords=["java"], enabled=True, order=0),
@@ -96,8 +96,8 @@ async def test_send_category_messages_skips_empty_categories() -> None:
 
     with (
         patch.dict("os.environ", {"LINE_CHANNEL_ACCESS_TOKEN": "token", "LINE_USER_ID": "U123"}),
-        patch("src.notifier.line_notifier.ApiClient", return_value=mock_api_client),
-        patch("src.notifier.line_notifier.MessagingApi", return_value=mock_api),
+        patch("src.services.notifier.line_notifier.ApiClient", return_value=mock_api_client),
+        patch("src.services.notifier.line_notifier.MessagingApi", return_value=mock_api),
     ):
         await send_category_messages(selections, _DEFAULT_CATS)
 
@@ -121,8 +121,8 @@ async def test_send_category_messages_sends_in_order() -> None:
 
     with (
         patch.dict("os.environ", {"LINE_CHANNEL_ACCESS_TOKEN": "token", "LINE_USER_ID": "U123"}),
-        patch("src.notifier.line_notifier.ApiClient", return_value=mock_api_client),
-        patch("src.notifier.line_notifier.MessagingApi", return_value=mock_api),
+        patch("src.services.notifier.line_notifier.ApiClient", return_value=mock_api_client),
+        patch("src.services.notifier.line_notifier.MessagingApi", return_value=mock_api),
     ):
         await send_category_messages(selections, _DEFAULT_CATS)
 

@@ -3,9 +3,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.fetchers.qiita_fetcher import fetch_qiita
-from src.fetchers.rss_fetcher import _entry_to_article, _parse_published, fetch_all_rss
-from src.models import SourceDef
+from src.core.models import SourceDef
+from src.services.fetchers.qiita_fetcher import fetch_qiita
+from src.services.fetchers.rss_fetcher import _entry_to_article, _parse_published, fetch_all_rss
 
 
 def _rss_source(name: str = "TestSource", url: str = "https://example.com/feed") -> SourceDef:
@@ -67,7 +67,7 @@ def test_entry_to_article_missing_title() -> None:
 @pytest.mark.asyncio
 async def test_fetch_all_rss_handles_errors() -> None:
     sources = [_rss_source()]
-    with patch("src.fetchers.rss_fetcher.httpx.AsyncClient") as mock_client_cls:
+    with patch("src.services.fetchers.rss_fetcher.httpx.AsyncClient") as mock_client_cls:
         mock_client = AsyncMock()
         mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -82,7 +82,7 @@ async def test_fetch_all_rss_skips_non_rss_sources() -> None:
     sources = [
         SourceDef(name="Qiita:Java", type="qiita", params={"tag": "Java"}, enabled=True),
     ]
-    with patch("src.fetchers.rss_fetcher.httpx.AsyncClient") as mock_client_cls:
+    with patch("src.services.fetchers.rss_fetcher.httpx.AsyncClient") as mock_client_cls:
         mock_client = AsyncMock()
         mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -112,7 +112,7 @@ async def test_fetch_qiita_returns_articles() -> None:
     mock_response.raise_for_status = MagicMock()
     mock_response.json.return_value = [_make_qiita_item()]
 
-    with patch("src.fetchers.qiita_fetcher.httpx.AsyncClient") as mock_client_cls:
+    with patch("src.services.fetchers.qiita_fetcher.httpx.AsyncClient") as mock_client_cls:
         mock_client = AsyncMock()
         mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -125,7 +125,7 @@ async def test_fetch_qiita_returns_articles() -> None:
 
 @pytest.mark.asyncio
 async def test_fetch_qiita_handles_error() -> None:
-    with patch("src.fetchers.qiita_fetcher.httpx.AsyncClient") as mock_client_cls:
+    with patch("src.services.fetchers.qiita_fetcher.httpx.AsyncClient") as mock_client_cls:
         mock_client = AsyncMock()
         mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
@@ -142,7 +142,7 @@ async def test_fetch_qiita_no_sources_returns_articles() -> None:
     mock_response.raise_for_status = MagicMock()
     mock_response.json.return_value = []
 
-    with patch("src.fetchers.qiita_fetcher.httpx.AsyncClient") as mock_client_cls:
+    with patch("src.services.fetchers.qiita_fetcher.httpx.AsyncClient") as mock_client_cls:
         mock_client = AsyncMock()
         mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)

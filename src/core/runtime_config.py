@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 
-from src import config
-from src.models import CategoryDef, SourceDef, UserSettings
+from src.core import config
+from src.core.models import CategoryDef, SourceDef, UserSettings
 
 
 class RuntimeConfig(BaseModel):

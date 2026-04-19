@@ -18,7 +18,7 @@ from linebot.v3.messaging import (
     URIAction,
 )
 
-from src.models import CategoryDef, SelectedArticle
+from src.core.models import CategoryDef, SelectedArticle
 
 logger = logging.getLogger(__name__)
 

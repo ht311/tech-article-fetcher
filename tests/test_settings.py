@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
-from src.models import Article, CategoryDef, UserSettings
-from src.selector.categorizer import bucket_articles
+from src.core.models import Article, CategoryDef, UserSettings
+from src.services.selector.categorizer import bucket_articles
 
 _DEFAULT_CATS = [
     CategoryDef(

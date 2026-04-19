@@ -3,9 +3,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.models import Article, CategoryDef
-from src.selector.categorizer import bucket_articles, classify
-from src.selector.gemini_selector import deduplicate, select_articles_by_category
+from src.core.models import Article, CategoryDef
+from src.services.selector.categorizer import bucket_articles, classify
+from src.services.selector.gemini_selector import deduplicate, select_articles_by_category
 
 _DEFAULT_CATS = [
     CategoryDef(
@@ -162,7 +162,7 @@ async def test_select_articles_by_category_success() -> None:
 
     with (
         patch.dict("os.environ", {"GEMINI_API_KEY": "test-key"}),
-        patch("src.selector.gemini_selector.genai.Client", return_value=mock_client),
+        patch("src.services.selector.gemini_selector.genai.Client", return_value=mock_client),
     ):
         selections = await select_articles_by_category(buckets, _DEFAULT_CATS)
 
@@ -192,8 +192,8 @@ async def test_select_articles_by_category_empty_on_gemini_failure() -> None:
 
     with (
         patch.dict("os.environ", {"GEMINI_API_KEY": "test-key"}),
-        patch("src.selector.gemini_selector.genai.Client", return_value=mock_client),
-        patch("src.selector.gemini_selector.asyncio.sleep", new_callable=AsyncMock),
+        patch("src.services.selector.gemini_selector.genai.Client", return_value=mock_client),
+        patch("src.services.selector.gemini_selector.asyncio.sleep", new_callable=AsyncMock),
     ):
         selections = await select_articles_by_category(buckets, _DEFAULT_CATS)
 

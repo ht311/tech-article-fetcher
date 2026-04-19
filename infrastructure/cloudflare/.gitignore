@@ -1,0 +1,13 @@
+# node modules
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# wrangler
+dist/
+.wrangler/
+
+# environment
+.env
+.env.*.local
+.env.production.local

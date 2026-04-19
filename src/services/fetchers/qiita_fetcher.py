@@ -4,8 +4,8 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 
-from src.config import QIITA_API_URL, QIITA_PER_PAGE, QIITA_QUERY, QIITA_TAG_QUERY
-from src.models import Article, SourceDef
+from src.core.config import QIITA_API_URL, QIITA_PER_PAGE, QIITA_QUERY, QIITA_TAG_QUERY
+from src.core.models import Article, SourceDef
 
 logger = logging.getLogger(__name__)
 

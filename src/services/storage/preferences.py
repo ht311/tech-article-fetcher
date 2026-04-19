@@ -15,7 +15,7 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 
-from src.models import ArticleFeedback, SelectedArticle, UserPreferences, UserSettings
+from src.core.models import ArticleFeedback, SelectedArticle, UserPreferences, UserSettings
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +78,7 @@ async def write_last_articles(
     Cloudflare Worker が「👍N」フィードバック受信時に記事情報を照合するために使う。
     dict[category_id, list] を渡した場合は CATEGORIES 順にフラット化する。
     """
-    from src.config import CATEGORIES
+    from src.core.config import CATEGORIES
 
     base_url = _kv_base_url()
     if not base_url:
@@ -145,7 +145,7 @@ async def write_article_history(
     """配信した記事を日付キーで KV に保存し、article_index を更新する。
     90日より古い日付エントリは index から削除し、対応する KV キーも消す。
     """
-    from src.config import CATEGORIES
+    from src.core.config import CATEGORIES
 
     base_url = _kv_base_url()
     if not base_url:

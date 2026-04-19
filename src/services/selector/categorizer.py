@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from src.models import Article, CategoryDef
+from src.core.models import Article, CategoryDef
 
 _EPOCH = datetime.min.replace(tzinfo=UTC)
 
