@@ -53,17 +53,8 @@
     "defaultMode": "bypassPermissions"
   },
   "model": "opusplan",
-  "extraKnownMarketplaces": {
-    "caveman": {
-      "source": {
-        "source": "github",
-        "repo": "JuliusBrussee/caveman"
-      }
-    }
-  },
   "skipDangerousModePermissionPrompt": true,
   "enabledPlugins": {
-    "caveman@caveman": true,
     "example-skills@anthropic-agent-skills": true
   }
 }

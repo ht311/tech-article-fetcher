@@ -40,10 +40,10 @@ QIITA_TAG_QUERY = "stocks:>10"   # タグ別検索の基本クエリ
 QIITA_QUERY = "stocks:>50"       # タグなし（人気記事全般）のクエリ
 QIITA_PER_PAGE = 10              # タグ別は件数を抑える（タグ数×10件）
 
-# 使用する Gemini モデル（無料枠あり・高速）
-GEMINI_MODEL = "gemini-2.0-flash"
-# 日次クォータ枯渇時のフォールバックモデル（別クォータプール）
-GEMINI_FALLBACK_MODEL = "gemini-2.0-flash-lite"
+# 使用する Gemini モデル（精度優先・無料枠あり）
+GEMINI_MODEL = "gemini-2.5-flash"
+# 日次クォータ枯渇時のフォールバックモデル（2.5-flash のみ無料枠あり）
+GEMINI_FALLBACK_MODEL = "gemini-2.5-flash"
 
 # 直近何時間の記事を対象にするか
 ARTICLE_FETCH_HOURS = 24
