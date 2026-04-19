@@ -1,6 +1,6 @@
 from collections import Counter
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, HttpUrl
 
@@ -21,7 +21,7 @@ class SelectedArticle(BaseModel):
 
     article: Article
     reason: str  # 日本語30字以内の選定理由
-    category_id: str | None = None  # 大カテゴリ ID（"backend" / "frontend" / "aws" / "management" / "others"）
+    category_id: str | None = None
 
 
 class ArticleFeedback(BaseModel):
@@ -34,20 +34,42 @@ class ArticleFeedback(BaseModel):
     timestamp: datetime
 
 
+class SourceDef(BaseModel):
+    """RSS / Qiita / SpeakerDeck ソースの定義。"""
+
+    name: str
+    type: Literal["rss", "qiita", "speakerdeck"]
+    url: str | None = None
+    params: dict[str, Any] | None = None
+    enabled: bool = True
+
+
+class CategoryDef(BaseModel):
+    """大カテゴリの定義。"""
+
+    id: str
+    name: str
+    keywords: list[str] = []
+    enabled: bool = True
+    order: int = 0
+
+
 class UserSettings(BaseModel):
     """配信設定。Cloudflare KV の `settings` キーに永続化される。"""
 
-    categories: dict[str, bool] = {
-        "backend": True,
-        "frontend": True,
-        "aws": True,
-        "management": True,
-        "others": True,
-    }
-    sources_enabled: dict[str, bool] = {}  # 空 dict は「全部 ON」扱い
+    # v1 互換フィールド（空 dict は「全部 ON」扱い。sources_enabled と同じ規則）
+    categories: dict[str, bool] = {}
+    sources_enabled: dict[str, bool] = {}
     max_per_category: int = 5
     exclude_keywords: list[str] = []
     include_keywords: list[str] = []
+
+    # v2 新フィールド（未設定時は fetcher が config デフォルトを使用）
+    sources: list[SourceDef] | None = None
+    category_defs: list[CategoryDef] | None = None
+    article_fetch_hours: int | None = None
+    gemini_max_input_per_category: int | None = None
+    schema_version: Literal[1, 2] | None = None
 
 
 class UserPreferences(BaseModel):

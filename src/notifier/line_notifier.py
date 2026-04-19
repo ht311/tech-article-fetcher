@@ -18,19 +18,15 @@ from linebot.v3.messaging import (
     URIAction,
 )
 
-from src.config import CATEGORIES
-from src.models import SelectedArticle
+from src.models import CategoryDef, SelectedArticle
 
 logger = logging.getLogger(__name__)
 
-_MAX_ARTICLES_PER_CATEGORY = 5
-
 
 def _build_article_box(index: int, s: SelectedArticle) -> FlexBox:
-    """1記事分の縦並び FlexBox を生成する。サムネイルがあれば表示する。"""
     a = s.article
 
-    contents: list = [
+    contents: list[object] = [
         FlexBox(
             layout="horizontal",
             contents=[
@@ -113,13 +109,10 @@ def _build_category_flex_message(
     selected: list[SelectedArticle],
     global_offset: int,
 ) -> FlexMessage:
-    """カテゴリ名・記事リスト・グローバルオフセットから Flex Message を生成する。
-    記事インデックスは global_offset+1 から始まり、Cloudflare Worker の last_articles キーと一致する。
-    """
     today = datetime.now().strftime("%Y/%m/%d")
     header_text = f"🗂️ {cat_name} ({today})"
 
-    body_contents: list = [
+    body_contents: list[object] = [
         FlexText(
             text=header_text,
             weight="bold",
@@ -128,8 +121,7 @@ def _build_category_flex_message(
         ),
     ]
 
-    display = selected[:_MAX_ARTICLES_PER_CATEGORY]
-    for i, s in enumerate(display, start=global_offset + 1):
+    for i, s in enumerate(selected, start=global_offset + 1):
         body_contents.append(FlexSeparator(margin="md"))
         body_contents.append(_build_article_box(i, s))
 
@@ -143,14 +135,17 @@ def _build_category_flex_message(
     )
 
     return FlexMessage(
-        alt_text=f"🗂️ {cat_name} ({today}) — {len(display)} 件",
+        alt_text=f"🗂️ {cat_name} ({today}) — {len(selected)} 件",
         contents=bubble,
     )
 
 
-async def send_category_messages(selections: dict[str, list[SelectedArticle]]) -> None:
-    """カテゴリごとに LINE Push Message を逐次送信する（CATEGORIES 順で順序を保証）。
-    0 件カテゴリはスキップする。記事インデックスはカテゴリをまたいでグローバル連番になる。
+async def send_category_messages(
+    selections: dict[str, list[SelectedArticle]],
+    category_defs: list[CategoryDef],
+) -> None:
+    """カテゴリごとに LINE Push Message を逐次送信する（category_defs の order 順）。
+    0 件カテゴリはスキップする。
     """
     token = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN")
     user_id = os.environ.get("LINE_USER_ID")
@@ -165,18 +160,16 @@ async def send_category_messages(selections: dict[str, list[SelectedArticle]]) -
     with ApiClient(configuration) as api_client:
         api = MessagingApi(api_client)
 
-        for cat in CATEGORIES:
-            cat_id: str = cat["id"]
-            cat_name: str = cat["name"]
-            selected = selections.get(cat_id, [])
+        for cat in category_defs:
+            selected = selections.get(cat.id, [])
             if not selected:
                 continue
 
-            flex_message = _build_category_flex_message(cat_name, selected, global_offset)
+            flex_message = _build_category_flex_message(cat.name, selected, global_offset)
             request = PushMessageRequest(to=user_id, messages=[flex_message])
             api.push_message(request)
             logger.info(
                 "LINE message sent: category=%s offset=%d count=%d",
-                cat_id, global_offset + 1, len(selected),
+                cat.id, global_offset + 1, len(selected),
             )
-            global_offset += len(selected[:_MAX_ARTICLES_PER_CATEGORY])
+            global_offset += len(selected)

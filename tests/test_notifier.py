@@ -3,8 +3,16 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.models import Article, SelectedArticle
+from src.models import Article, CategoryDef, SelectedArticle
 from src.notifier.line_notifier import _build_category_flex_message, send_category_messages
+
+_DEFAULT_CATS = [
+    CategoryDef(id="backend", name="バックエンド", keywords=["java"], enabled=True, order=0),
+    CategoryDef(id="frontend", name="フロントエンド", keywords=["react"], enabled=True, order=1),
+    CategoryDef(id="aws", name="AWS", keywords=["aws"], enabled=True, order=2),
+    CategoryDef(id="management", name="マネジメント/組織", keywords=[], enabled=True, order=3),
+    CategoryDef(id="others", name="その他", keywords=[], enabled=True, order=4),
+]
 
 
 def _make_selected(
@@ -37,33 +45,38 @@ def test_build_category_flex_message_article_count_in_alt() -> None:
     assert "3 件" in msg.alt_text
 
 
-def test_build_category_flex_message_caps_at_5() -> None:
+def test_build_category_flex_message_sends_all_received() -> None:
+    """notifier は受け取った件数をそのまま送る（上限なし）。"""
     selected = [_make_selected(f"Article {i}") for i in range(7)]
     msg = _build_category_flex_message("その他", selected, global_offset=0)
-    assert "5 件" in msg.alt_text
+    assert "7 件" in msg.alt_text
 
 
 # --- send_category_messages ---
 
 @pytest.mark.asyncio
 async def test_send_category_messages_raises_without_token() -> None:
-    selections = {"backend": [_make_selected()], "frontend": [], "aws": [], "management": [], "others": []}
+    selections = {
+        "backend": [_make_selected()], "frontend": [], "aws": [], "management": [], "others": []
+    }
     with patch.dict("os.environ", {}, clear=True):
         import os
         os.environ.pop("LINE_CHANNEL_ACCESS_TOKEN", None)
         os.environ.pop("LINE_USER_ID", None)
         with pytest.raises(EnvironmentError):
-            await send_category_messages(selections)
+            await send_category_messages(selections, _DEFAULT_CATS)
 
 
 @pytest.mark.asyncio
 async def test_send_category_messages_raises_without_user_id() -> None:
-    selections = {"backend": [_make_selected()], "frontend": [], "aws": [], "management": [], "others": []}
+    selections = {
+        "backend": [_make_selected()], "frontend": [], "aws": [], "management": [], "others": []
+    }
     with patch.dict("os.environ", {"LINE_CHANNEL_ACCESS_TOKEN": "token"}):
         import os
         os.environ.pop("LINE_USER_ID", None)
         with pytest.raises(EnvironmentError):
-            await send_category_messages(selections)
+            await send_category_messages(selections, _DEFAULT_CATS)
 
 
 @pytest.mark.asyncio
@@ -86,7 +99,7 @@ async def test_send_category_messages_skips_empty_categories() -> None:
         patch("src.notifier.line_notifier.ApiClient", return_value=mock_api_client),
         patch("src.notifier.line_notifier.MessagingApi", return_value=mock_api),
     ):
-        await send_category_messages(selections)
+        await send_category_messages(selections, _DEFAULT_CATS)
 
     assert mock_api.push_message.call_count == 1
 
@@ -111,6 +124,6 @@ async def test_send_category_messages_sends_in_order() -> None:
         patch("src.notifier.line_notifier.ApiClient", return_value=mock_api_client),
         patch("src.notifier.line_notifier.MessagingApi", return_value=mock_api),
     ):
-        await send_category_messages(selections)
+        await send_category_messages(selections, _DEFAULT_CATS)
 
     assert mock_api.push_message.call_count == 2

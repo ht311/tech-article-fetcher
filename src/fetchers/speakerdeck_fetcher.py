@@ -3,8 +3,6 @@
 公式 API なし。カテゴリ Atom フィード (/c/<category>.atom) を利用:
   - 各カテゴリフィードは最新 18 件を返す
   - CJK 文字 (U+3000–U+9FFF) がタイトルまたはサマリーに含まれるものを「日本語」と判定
-
-/trending.atom / /popular.atom はエントリが空のため利用不可。
 """
 
 import asyncio
@@ -15,8 +13,7 @@ from datetime import UTC, datetime, timedelta
 import feedparser
 import httpx
 
-from src.config import ARTICLE_FETCH_HOURS, SPEAKERDECK_CATEGORIES
-from src.models import Article
+from src.models import Article, SourceDef
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +41,7 @@ def _parse_entry(entry: feedparser.FeedParserDict) -> Article | None:
         t = getattr(entry, attr, None)
         if t:
             try:
-                published_at = datetime(*t[:6], tzinfo=UTC)
+                published_at = datetime(t[0], t[1], t[2], t[3], t[4], t[5], tzinfo=UTC)
                 break
             except Exception:
                 continue
@@ -78,27 +75,36 @@ async def _fetch_category(client: httpx.AsyncClient, category: str) -> list[Arti
             article = _parse_entry(entry)
             if article and _is_japanese(article.title + article.summary):
                 articles.append(article)
-        logger.info("SpeakerDeck /c/%s: %d entries, %d Japanese", category, len(feed.entries), len(articles))
+        logger.info(
+            "SpeakerDeck /c/%s: %d entries, %d Japanese",
+            category, len(feed.entries), len(articles),
+        )
         return articles
     except Exception as exc:
         logger.warning("Failed to fetch SpeakerDeck /c/%s: %s", category, exc)
         return []
 
 
-async def fetch_speakerdeck() -> list[Article]:
-    """SpeakerDeck カテゴリフィードから日本語スライドを並列取得して返す。"""
-    cutoff = datetime.now(UTC) - timedelta(hours=ARTICLE_FETCH_HOURS)
+async def fetch_speakerdeck(sources: list[SourceDef], hours: int) -> list[Article]:
+    """SpeakerDeck ソース（type=="speakerdeck"）から日本語スライドを並列取得して返す。"""
+    cutoff = datetime.now(UTC) - timedelta(hours=hours)
+
+    categories = [
+        s.params["category"]
+        for s in sources
+        if s.type == "speakerdeck" and s.params and "category" in s.params
+    ]
 
     async with httpx.AsyncClient(follow_redirects=True) as client:
         results = await asyncio.gather(
-            *[_fetch_category(client, cat) for cat in SPEAKERDECK_CATEGORIES],
+            *[_fetch_category(client, cat) for cat in categories],
             return_exceptions=True,
         )
 
     seen_urls: set[str] = set()
     articles: list[Article] = []
     for result in results:
-        if isinstance(result, Exception):
+        if isinstance(result, BaseException):
             logger.warning("SpeakerDeck category raised exception: %s", result)
             continue
         for article in result:

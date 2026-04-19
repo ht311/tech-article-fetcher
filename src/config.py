@@ -1,3 +1,5 @@
+from typing import Any
+
 # RSSフィードのソース一覧。name はメッセージ表示にも使われる。
 # ソースを追加・削除したい場合はここだけ編集すればよい。
 RSS_SOURCES: list[dict[str, str]] = [
@@ -49,7 +51,7 @@ GEMINI_FALLBACK_MODEL = "gemini-2.5-flash"
 ARTICLE_FETCH_HOURS = 24
 
 # 大カテゴリ定義（id 順でプロンプト・LINE 送信順序が決まる）
-CATEGORIES: list[dict] = [
+CATEGORIES: list[dict[str, Any]] = [
     {
         "id": "backend",
         "name": "バックエンド",
@@ -118,3 +120,37 @@ SPEAKERDECK_CATEGORIES: list[str] = [
     "education",
     "design",
 ]
+
+
+def default_sources() -> list[dict[str, object]]:
+    """RSS_SOURCES / QIITA_TAGS / SPEAKERDECK_CATEGORIES を SourceDef 形式で返す。"""
+    from src.models import SourceDef  # 循環 import 回避
+
+    sources: list[SourceDef] = []
+    for i, s in enumerate(RSS_SOURCES):
+        sources.append(SourceDef(name=s["name"], type="rss", url=s["url"], enabled=True))
+    for tag in QIITA_TAGS:
+        sources.append(SourceDef(
+            name=f"Qiita:{tag}", type="qiita", params={"tag": tag}, enabled=True
+        ))
+    for cat in SPEAKERDECK_CATEGORIES:
+        sources.append(SourceDef(
+            name=f"SpeakerDeck:{cat}", type="speakerdeck", params={"category": cat}, enabled=True
+        ))
+    return [s.model_dump() for s in sources]
+
+
+def default_category_defs() -> list[dict[str, object]]:
+    """CATEGORIES を CategoryDef 形式で返す。"""
+    from src.models import CategoryDef  # 循環 import 回避
+
+    defs: list[CategoryDef] = []
+    for i, c in enumerate(CATEGORIES):
+        defs.append(CategoryDef(
+            id=c["id"],
+            name=c["name"],
+            keywords=c.get("keywords", []),
+            enabled=True,
+            order=i,
+        ))
+    return [d.model_dump() for d in defs]

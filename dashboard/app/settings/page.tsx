@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import CategoryEditor, { type CategoryDef } from "../components/CategoryEditor";
+import SourceEditor, { type SourceDef } from "../components/SourceEditor";
+import ParamsEditor from "../components/ParamsEditor";
 
 interface UserSettings {
   categories: Record<string, boolean>;
@@ -8,24 +11,20 @@ interface UserSettings {
   max_per_category: number;
   exclude_keywords: string[];
   include_keywords: string[];
+  sources?: SourceDef[];
+  category_defs?: CategoryDef[];
+  article_fetch_hours?: number;
+  gemini_max_input_per_category?: number;
+  schema_version?: 1 | 2;
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  backend: "バックエンド",
-  frontend: "フロントエンド",
-  aws: "AWS",
-  management: "マネジメント",
-  others: "その他",
-};
+type Tab = "categories" | "sources" | "params" | "keywords";
 
-const ALL_SOURCES = [
-  "Zenn", "Qiita人気記事", "はてブIT", "noteテック",
-  "メルカリ", "サイバーエージェント", "DeNA", "SmartHR", "LayerX",
-  "GitHub Blog", "AWS Blog", "Cloudflare Blog", "Vercel Blog",
-  "Qiita", "dev.to", "Hacker News", "SpeakerDeck",
-  "Reddit r/java", "Reddit r/SpringBoot", "Reddit r/typescript",
-  "Reddit r/reactjs", "Reddit r/nextjs", "Reddit r/aws",
-  "Reddit r/agile", "Reddit r/ExperiencedDevs",
+const TABS: { id: Tab; label: string }[] = [
+  { id: "categories", label: "カテゴリ" },
+  { id: "sources", label: "ソース" },
+  { id: "params", label: "パラメータ" },
+  { id: "keywords", label: "キーワード" },
 ];
 
 function KeywordList({
@@ -38,15 +37,11 @@ function KeywordList({
   onChange: (kws: string[]) => void;
 }) {
   const [input, setInput] = useState("");
-
   const add = () => {
     const kw = input.trim();
-    if (kw && !keywords.includes(kw)) {
-      onChange([...keywords, kw]);
-    }
+    if (kw && !keywords.includes(kw)) onChange([...keywords, kw]);
     setInput("");
   };
-
   return (
     <div>
       <p className="text-sm font-medium mb-2">{label}</p>
@@ -58,26 +53,13 @@ function KeywordList({
           placeholder="キーワードを入力して Enter"
           className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm"
         />
-        <button
-          onClick={add}
-          className="px-3 py-1 bg-gray-100 rounded text-sm hover:bg-gray-200"
-        >
-          追加
-        </button>
+        <button onClick={add} className="px-3 py-1 bg-gray-100 rounded text-sm hover:bg-gray-200">追加</button>
       </div>
       <div className="flex flex-wrap gap-2">
         {keywords.map((kw) => (
-          <span
-            key={kw}
-            className="flex items-center gap-1 bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full"
-          >
+          <span key={kw} className="flex items-center gap-1 bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full">
             {kw}
-            <button
-              onClick={() => onChange(keywords.filter((k) => k !== kw))}
-              className="hover:text-blue-900"
-            >
-              ×
-            </button>
+            <button onClick={() => onChange(keywords.filter((k) => k !== kw))} className="hover:text-blue-900">×</button>
           </span>
         ))}
       </div>
@@ -87,6 +69,7 @@ function KeywordList({
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<UserSettings | null>(null);
+  const [tab, setTab] = useState<Tab>("categories");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -111,12 +94,11 @@ export default function SettingsPage() {
 
   if (!settings) return <p className="text-sm text-gray-400">読み込み中...</p>;
 
-  const allSourcesEnabled = ALL_SOURCES.every(
-    (s) => settings.sources_enabled[s] !== false
-  );
+  const sources = settings.sources ?? [];
+  const categoryDefs = settings.category_defs ?? [];
 
   return (
-    <div className="space-y-8 max-w-2xl">
+    <div className="space-y-6 max-w-3xl">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">設定</h1>
         <button
@@ -128,100 +110,122 @@ export default function SettingsPage() {
         </button>
       </div>
 
-      {/* カテゴリ ON/OFF */}
-      <section className="bg-white border border-gray-200 rounded-xl p-5 space-y-3">
-        <h2 className="font-semibold">カテゴリ配信</h2>
-        {Object.entries(CATEGORY_LABELS).map(([id, label]) => (
-          <label key={id} className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={settings.categories[id] !== false}
-              onChange={(e) =>
-                setSettings({
-                  ...settings,
-                  categories: { ...settings.categories, [id]: e.target.checked },
-                })
-              }
-              className="w-4 h-4 accent-blue-600"
-            />
-            <span className="text-sm">{label}</span>
-          </label>
-        ))}
-      </section>
-
-      {/* カテゴリあたりの件数 */}
-      <section className="bg-white border border-gray-200 rounded-xl p-5">
-        <h2 className="font-semibold mb-3">カテゴリあたりの最大件数</h2>
-        <div className="flex items-center gap-3">
-          <input
-            type="range"
-            min={1}
-            max={5}
-            value={settings.max_per_category}
-            onChange={(e) =>
-              setSettings({ ...settings, max_per_category: Number(e.target.value) })
-            }
-            className="w-40 accent-blue-600"
-          />
-          <span className="text-sm font-medium">{settings.max_per_category} 件</span>
-        </div>
-      </section>
-
-      {/* ソース ON/OFF */}
-      <section className="bg-white border border-gray-200 rounded-xl p-5 space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold">ソース配信設定</h2>
+      {/* タブ */}
+      <div className="flex border-b border-gray-200 gap-0">
+        {TABS.map(({ id, label }) => (
           <button
-            onClick={() =>
-              setSettings({
-                ...settings,
-                sources_enabled: allSourcesEnabled
-                  ? Object.fromEntries(ALL_SOURCES.map((s) => [s, false]))
-                  : {},
-              })
-            }
-            className="text-xs text-blue-600 hover:underline"
+            key={id}
+            onClick={() => setTab(id)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              tab === id
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
           >
-            {allSourcesEnabled ? "全て OFF" : "全て ON"}
+            {label}
           </button>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          {ALL_SOURCES.map((src) => (
-            <label key={src} className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={settings.sources_enabled[src] !== false}
-                onChange={(e) =>
-                  setSettings({
-                    ...settings,
-                    sources_enabled: {
-                      ...settings.sources_enabled,
-                      [src]: e.target.checked,
-                    },
-                  })
-                }
-                className="w-3.5 h-3.5 accent-blue-600"
-              />
-              <span className="text-xs">{src}</span>
-            </label>
-          ))}
-        </div>
-      </section>
+        ))}
+      </div>
 
-      {/* キーワード設定 */}
-      <section className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
-        <h2 className="font-semibold">キーワード設定</h2>
-        <KeywordList
-          label="優先キーワード（Gemini に追加指示）"
-          keywords={settings.include_keywords}
-          onChange={(kws) => setSettings({ ...settings, include_keywords: kws })}
-        />
-        <KeywordList
-          label="除外キーワード（タイトル・サマリーにマッチしたら除外）"
-          keywords={settings.exclude_keywords}
-          onChange={(kws) => setSettings({ ...settings, exclude_keywords: kws })}
-        />
-      </section>
+      <div className="bg-white border border-gray-200 rounded-xl p-5">
+        {tab === "categories" && (
+          <>
+            <h2 className="font-semibold mb-4">カテゴリ設定</h2>
+            {categoryDefs.length > 0 ? (
+              <CategoryEditor
+                categories={categoryDefs}
+                onChange={(cats) => setSettings({ ...settings, category_defs: cats })}
+              />
+            ) : (
+              /* v1 互換: category_defs 未設定時は v1 の ON/OFF のみ表示 */
+              <div className="space-y-3">
+                {Object.entries(settings.categories).map(([id, enabled]) => (
+                  <label key={id} className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={enabled !== false}
+                      onChange={(e) =>
+                        setSettings({ ...settings, categories: { ...settings.categories, [id]: e.target.checked } })
+                      }
+                      className="w-4 h-4 accent-blue-600"
+                    />
+                    <span className="text-sm">{id}</span>
+                  </label>
+                ))}
+                <p className="text-xs text-gray-400 mt-2">
+                  v2 設定を有効にするには「ソース」タブで保存してください。
+                </p>
+              </div>
+            )}
+          </>
+        )}
+
+        {tab === "sources" && (
+          <>
+            <h2 className="font-semibold mb-4">ソース設定</h2>
+            {sources.length > 0 ? (
+              <SourceEditor
+                sources={sources}
+                onChange={(srcs) => setSettings({ ...settings, sources: srcs })}
+              />
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-gray-500">
+                  現在は fetcher のデフォルトソースが使用されています。
+                  ソースを管理するには初期化してください。
+                </p>
+                <button
+                  onClick={() =>
+                    setSettings({
+                      ...settings,
+                      sources: [
+                        { name: "Zenn", type: "rss", url: "https://zenn.dev/feed", enabled: true },
+                        { name: "Qiita人気記事", type: "rss", url: "https://qiita.com/popular-items/feed", enabled: true },
+                        { name: "GitHub Blog", type: "rss", url: "https://github.blog/feed/", enabled: true },
+                        { name: "Qiita:TypeScript", type: "qiita", params: { tag: "TypeScript" }, enabled: true },
+                        { name: "SpeakerDeck:programming", type: "speakerdeck", params: { category: "programming" }, enabled: true },
+                      ],
+                    })
+                  }
+                  className="px-3 py-1.5 bg-blue-50 text-blue-700 text-sm rounded hover:bg-blue-100"
+                >
+                  ソースを初期化する
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        {tab === "params" && (
+          <>
+            <h2 className="font-semibold mb-4">パラメータ設定</h2>
+            <ParamsEditor
+              maxPerCategory={settings.max_per_category}
+              articleFetchHours={settings.article_fetch_hours ?? 24}
+              geminiMaxInput={settings.gemini_max_input_per_category ?? 25}
+              onChange={(key, value) => setSettings({ ...settings, [key]: value })}
+            />
+          </>
+        )}
+
+        {tab === "keywords" && (
+          <>
+            <h2 className="font-semibold mb-4">キーワード設定</h2>
+            <div className="space-y-4">
+              <KeywordList
+                label="優先キーワード（Gemini に追加指示）"
+                keywords={settings.include_keywords}
+                onChange={(kws) => setSettings({ ...settings, include_keywords: kws })}
+              />
+              <KeywordList
+                label="除外キーワード（タイトル・サマリーにマッチしたら除外）"
+                keywords={settings.exclude_keywords}
+                onChange={(kws) => setSettings({ ...settings, exclude_keywords: kws })}
+              />
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

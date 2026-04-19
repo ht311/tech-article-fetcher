@@ -4,26 +4,17 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 
-from src.config import (
-    ARTICLE_FETCH_HOURS,
-    QIITA_API_URL,
-    QIITA_PER_PAGE,
-    QIITA_QUERY,
-    QIITA_TAG_QUERY,
-    QIITA_TAGS,
-)
-from src.models import Article
+from src.config import QIITA_API_URL, QIITA_PER_PAGE, QIITA_QUERY, QIITA_TAG_QUERY
+from src.models import Article, SourceDef
 
 logger = logging.getLogger(__name__)
 
 
 def _parse_qiita_item(item: dict) -> Article | None:  # type: ignore[type-arg]
-    """Qiita API のレスポンスアイテムを Article に変換する。"""
     try:
         published_at_str: str = item.get("created_at", "")
         published_at: datetime | None = None
         if published_at_str:
-            # Qiita は ISO 8601 形式で返すが末尾が "Z" の場合があるため変換
             published_at = datetime.fromisoformat(published_at_str.replace("Z", "+00:00"))
         return Article(
             title=item["title"],
@@ -37,9 +28,10 @@ def _parse_qiita_item(item: dict) -> Article | None:  # type: ignore[type-arg]
         return None
 
 
-async def _fetch_qiita_query(client: httpx.AsyncClient, query: str, cutoff: datetime) -> list[Article]:
-    """指定クエリで Qiita API を呼び出し、cutoff 以降の記事を返す。"""
-    params = {"query": query, "per_page": QIITA_PER_PAGE}
+async def _fetch_qiita_query(
+    client: httpx.AsyncClient, query: str, cutoff: datetime
+) -> list[Article]:
+    params: dict[str, str | int] = {"query": query, "per_page": QIITA_PER_PAGE}
     try:
         response = await client.get(QIITA_API_URL, params=params, timeout=15)
         response.raise_for_status()
@@ -55,11 +47,15 @@ async def _fetch_qiita_query(client: httpx.AsyncClient, query: str, cutoff: date
         return []
 
 
-async def fetch_qiita() -> list[Article]:
-    """Qiita API から人気記事＋トピックタグ別記事を並列取得し、重複排除して返す。"""
-    cutoff = datetime.now(UTC) - timedelta(hours=ARTICLE_FETCH_HOURS)
+async def fetch_qiita(sources: list[SourceDef], hours: int) -> list[Article]:
+    """Qiita ソース（type=="qiita"）の tag params からクエリを組み立て並列取得する。"""
+    cutoff = datetime.now(UTC) - timedelta(hours=hours)
 
-    queries = [QIITA_QUERY] + [f"{QIITA_TAG_QUERY} tag:{tag}" for tag in QIITA_TAGS]
+    tags = [
+        s.params["tag"] for s in sources if s.type == "qiita" and s.params and "tag" in s.params
+    ]
+
+    queries = [QIITA_QUERY] + [f"{QIITA_TAG_QUERY} tag:{tag}" for tag in tags]
 
     async with httpx.AsyncClient() as client:
         results = await asyncio.gather(
@@ -70,7 +66,7 @@ async def fetch_qiita() -> list[Article]:
     seen_urls: set[str] = set()
     articles: list[Article] = []
     for result in results:
-        if isinstance(result, Exception):
+        if isinstance(result, BaseException):
             logger.warning("Qiita query raised an exception: %s", result)
             continue
         for article in result:

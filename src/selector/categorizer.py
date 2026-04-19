@@ -1,36 +1,40 @@
 from datetime import UTC, datetime
 
-from src.config import CATEGORIES, GEMINI_MAX_INPUT_PER_CATEGORY
-from src.models import Article
+from src.models import Article, CategoryDef
 
 _EPOCH = datetime.min.replace(tzinfo=UTC)
 
 
-def classify(article: Article) -> str:
+def classify(article: Article, category_defs: list[CategoryDef]) -> str:
     """タイトル + サマリのキーワードマッチで大カテゴリ ID を返す。
-    先にリストされたカテゴリが優先される。どれにもマッチしなければ "others"。
+    先にリストされたカテゴリが優先。どれにもマッチしなければ "others"。
     """
     text = (article.title + " " + (article.summary or "")).lower()
-    for cat in CATEGORIES:
-        if cat["id"] == "others":
+    for cat in category_defs:
+        if cat.id == "others":
             continue
-        if any(kw in text for kw in cat["keywords"]):
-            return cat["id"]
+        if any(kw in text for kw in cat.keywords):
+            return cat.id
     return "others"
 
 
-def bucket_articles(articles: list[Article]) -> dict[str, list[Article]]:
+def bucket_articles(
+    articles: list[Article],
+    category_defs: list[CategoryDef],
+    gemini_max_input: int,
+) -> dict[str, list[Article]]:
     """記事リストを大カテゴリごとにバケット分けして返す。
-    各バケットは published_at 降順でソートされ、GEMINI_MAX_INPUT_PER_CATEGORY 件に切り詰められる。
+    各バケットは published_at 降順でソートされ gemini_max_input 件に切り詰められる。
     """
-    buckets: dict[str, list[Article]] = {cat["id"]: [] for cat in CATEGORIES}
+    buckets: dict[str, list[Article]] = {cat.id: [] for cat in category_defs}
     for article in articles:
-        cat_id = classify(article)
-        buckets[cat_id].append(article)
+        cat_id = classify(article, category_defs)
+        if cat_id in buckets:
+            buckets[cat_id].append(article)
     for cat_id in buckets:
         buckets[cat_id].sort(
             key=lambda a: a.published_at if a.published_at else _EPOCH,
             reverse=True,
         )
-        buckets[cat_id] = buckets[cat_id][:GEMINI_MAX_INPUT_PER_CATEGORY]
+        buckets[cat_id] = buckets[cat_id][:gemini_max_input]
     return buckets

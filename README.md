@@ -512,6 +512,36 @@ Cloudflare Pages でホストされる管理 UI。Next.js 静的書き出し + P
 
 `DASHBOARD_SECRET` 環境変数（Cloudflare Pages → Settings → Environment variables で設定）が存在する場合、HTTP Basic Auth でパスワードを要求する。
 
+### 設定スキーマ v2
+
+`PUT /api/settings` は v1 互換フィールドに加えて v2 フィールドを受け付ける。
+
+```jsonc
+{
+  // v1 互換（既存フィールド）
+  "categories": { "backend": true, "frontend": true, "aws": true, "management": true, "others": true },
+  "sources_enabled": {},
+  "max_per_category": 5,
+  "exclude_keywords": [],
+  "include_keywords": [],
+
+  // v2 拡張（optional — 未設定時は fetcher が config.py のデフォルトを使用）
+  "sources": [
+    { "name": "Zenn", "type": "rss", "url": "https://zenn.dev/feed", "enabled": true },
+    { "name": "Qiita:TypeScript", "type": "qiita", "params": { "tag": "TypeScript" }, "enabled": true },
+    { "name": "SpeakerDeck:programming", "type": "speakerdeck", "params": { "category": "programming" }, "enabled": true }
+  ],
+  "category_defs": [
+    { "id": "backend", "name": "バックエンド", "keywords": ["java", "spring"], "enabled": true, "order": 0 }
+  ],
+  "article_fetch_hours": 24,
+  "gemini_max_input_per_category": 25,
+  "schema_version": 2
+}
+```
+
+v1 → v2 マイグレーションは自動。`PUT /api/settings` で `sources` または `category_defs` を含めると `schema_version: 2` に昇格する。既存の v1 フィールドはそのまま読み書きされる（後方互換）。
+
 ---
 
 ## エラーハンドリング方針

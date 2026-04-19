@@ -8,14 +8,13 @@ from google import genai
 from google.genai import types
 
 from src.config import (
-    CATEGORIES,
     GEMINI_FALLBACK_MODEL,
     GEMINI_MAX_RETRIES,
     GEMINI_MODEL,
     GEMINI_RETRY_BASE_WAIT,
     SELECT_MAX_PER_CATEGORY,
 )
-from src.models import Article, SelectedArticle, UserPreferences
+from src.models import Article, CategoryDef, SelectedArticle, UserPreferences
 
 _RETRY_AFTER_RE = re.compile(r"Please retry in ([\d.]+)s")
 _DAILY_QUOTA_RE = re.compile(r"PerDay")
@@ -24,24 +23,22 @@ logger = logging.getLogger(__name__)
 
 
 def _build_system_prompt(
-    category: dict,
+    category: CategoryDef,
     pref_summary: str,
     max_count: int,
     include_keywords: list[str],
 ) -> str:
-    cat_id: str = category["id"]
-    cat_name: str = category["name"]
-
-    if cat_id == "others":
+    if category.id == "others":
         topic_line = "バックエンド / フロントエンド / AWS / マネジメント以外の注目技術記事"
-        category_constraint = "バックエンド・フロントエンド・AWS・マネジメント系の記事は含めないこと"
+        category_constraint = (
+            "バックエンド・フロントエンド・AWS・マネジメント系の記事は含めないこと"
+        )
     else:
-        keywords: list[str] = category["keywords"]
-        topic_line = "、".join(kw.title() for kw in keywords if kw)
-        category_constraint = f"{cat_name}カテゴリに明らかに無関係な記事は含めないこと"
+        topic_line = "、".join(kw.title() for kw in category.keywords if kw)
+        category_constraint = f"{category.name}カテゴリに明らかに無関係な記事は含めないこと"
 
     base = f"""あなたはWebエンジニア向けの技術記事キュレーターです。
-提供された記事リストから、{cat_name}カテゴリに関連するおすすめ記事を最大{max_count}件選んでください。
+提供された記事リストから、{category.name}カテゴリに関連するおすすめ記事を最大{max_count}件選んでください。
 
 優先トピック: {topic_line}
 
@@ -102,7 +99,6 @@ async def _call_gemini(
     articles: list[Article],
     max_count: int,
 ) -> list[SelectedArticle]:
-    """指定モデルで Gemini を呼び出す。429 日次クォータ枯渇は即例外再送出。"""
     for attempt in range(GEMINI_MAX_RETRIES):
         try:
             response = client.models.generate_content(
@@ -110,6 +106,8 @@ async def _call_gemini(
                 contents=prompt,
                 config=config,
             )
+            if response.text is None:
+                raise ValueError("Empty response from Gemini")
             selections = _parse_gemini_response(response.text)
 
             results: list[SelectedArticle] = []
@@ -143,48 +141,45 @@ async def _call_gemini(
 
 async def _select_for_category(
     client: genai.Client,
-    category: dict,
+    category: CategoryDef,
     articles: list[Article],
     pref_summary: str,
     max_count: int,
     include_keywords: list[str],
 ) -> tuple[str, list[SelectedArticle]]:
-    cat_id: str = category["id"]
-
     if not articles:
-        return (cat_id, [])
+        return (category.id, [])
 
     system_prompt = _build_system_prompt(category, pref_summary, max_count, include_keywords)
-    config = types.GenerateContentConfig(system_instruction=system_prompt)
+    cfg = types.GenerateContentConfig(system_instruction=system_prompt)
     article_text = _build_article_list_text(articles)
     prompt = (
-        f"以下の記事リストから{category['name']}カテゴリのおすすめを"
+        f"以下の記事リストから{category.name}カテゴリのおすすめを"
         f"最大{max_count}件選んでください"
         f"（適切な記事がなければ空配列 [] を返す）:\n\n{article_text}"
     )
 
     for model in (GEMINI_MODEL, GEMINI_FALLBACK_MODEL):
         try:
-            selected = await _call_gemini(client, model, prompt, config, articles, max_count)
+            selected = await _call_gemini(client, model, prompt, cfg, articles, max_count)
             for s in selected:
-                s.category_id = cat_id
-            return (cat_id, selected)
+                s.category_id = category.id
+            return (category.id, selected)
         except Exception as exc:
-            logger.warning("Gemini model %s failed for category %s: %s", model, cat_id, exc)
+            logger.warning("Gemini model %s failed for category %s: %s", model, category.id, exc)
 
-    logger.warning("All Gemini models failed for category %s; returning empty", cat_id)
-    return (cat_id, [])
+    logger.warning("All Gemini models failed for category %s; returning empty", category.id)
+    return (category.id, [])
 
 
 async def select_articles_by_category(
     buckets: dict[str, list[Article]],
+    category_defs: list[CategoryDef],
     preferences: UserPreferences | None = None,
     max_per_category: int = SELECT_MAX_PER_CATEGORY,
     include_keywords: list[str] | None = None,
 ) -> dict[str, list[SelectedArticle]]:
-    """カテゴリごとに Gemini を並列呼び出しして最大 max_per_category 件を選定する。
-    モデル失敗時はそのカテゴリを空リストとして扱う（フォールバック選定なし）。
-    """
+    """カテゴリごとに Gemini を並列呼び出しして最大 max_per_category 件を選定する。"""
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         raise OSError("GEMINI_API_KEY is not set")
@@ -195,18 +190,19 @@ async def select_articles_by_category(
 
     tasks = [
         _select_for_category(
-            client, cat, buckets.get(cat["id"], []), pref_summary, max_per_category, kws
+            client, cat, buckets.get(cat.id, []), pref_summary, max_per_category, kws
         )
-        for cat in CATEGORIES
+        for cat in category_defs
     ]
     raw_results = await asyncio.gather(*tasks, return_exceptions=True)
 
     selections: dict[str, list[SelectedArticle]] = {}
-    for cat, result in zip(CATEGORIES, raw_results):
-        if isinstance(result, Exception):
-            logger.warning("Category %s selection raised: %s", cat["id"], result)
-            selections[cat["id"]] = []
+    for cat, result in zip(category_defs, raw_results):
+        if isinstance(result, BaseException):
+            logger.warning("Category %s selection raised: %s", cat.id, result)
+            selections[cat.id] = []
         else:
-            selections[cat["id"]] = result[1]
+            _, selected = result
+            selections[cat.id] = selected
 
     return selections
