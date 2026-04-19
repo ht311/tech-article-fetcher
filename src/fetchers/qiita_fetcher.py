@@ -4,7 +4,14 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 
-from src.config import ARTICLE_FETCH_HOURS, QIITA_API_URL, QIITA_PER_PAGE, QIITA_QUERY, QIITA_TAG_QUERY, QIITA_TAGS
+from src.config import (
+    ARTICLE_FETCH_HOURS,
+    QIITA_API_URL,
+    QIITA_PER_PAGE,
+    QIITA_QUERY,
+    QIITA_TAG_QUERY,
+    QIITA_TAGS,
+)
 from src.models import Article
 
 logger = logging.getLogger(__name__)

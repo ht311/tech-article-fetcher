@@ -11,17 +11,21 @@
 import json
 import logging
 import os
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import httpx
 
-from src.models import ArticleFeedback, SelectedArticle, UserPreferences
+from src.models import ArticleFeedback, SelectedArticle, UserPreferences, UserSettings
 
 logger = logging.getLogger(__name__)
 
 _KV_PREFERENCES_KEY = "preferences"
 _KV_LAST_ARTICLES_KEY = "last_articles"
+_KV_SETTINGS_KEY = "settings"
+_KV_ARTICLE_INDEX_KEY = "article_index"
+_KV_ARTICLE_HISTORY_PREFIX = "articles:"
 _MAX_HISTORY = 100
+_MAX_ARTICLE_HISTORY_DAYS = 90
 
 
 def _kv_base_url() -> str | None:
@@ -110,6 +114,123 @@ async def write_last_articles(
         logger.info("Wrote last_articles to KV (%d articles)", len(articles))
     except Exception as exc:
         logger.warning("Failed to write last_articles to KV: %s", exc)
+
+
+async def get_settings() -> UserSettings:
+    """Cloudflare KV から配信設定を取得する。未設定・失敗時はデフォルト設定を返す。"""
+    base_url = _kv_base_url()
+    if not base_url:
+        return UserSettings()
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{base_url}/{_KV_SETTINGS_KEY}",
+                headers=_auth_headers(),
+                timeout=10,
+            )
+        if response.status_code == 404:
+            return UserSettings()
+        response.raise_for_status()
+        return UserSettings.model_validate(response.json())
+    except Exception as exc:
+        logger.warning("Failed to read settings from KV: %s", exc)
+        return UserSettings()
+
+
+async def write_article_history(
+    date: str,
+    selections: dict[str, list[SelectedArticle]],
+) -> None:
+    """配信した記事を日付キーで KV に保存し、article_index を更新する。
+    90日より古い日付エントリは index から削除し、対応する KV キーも消す。
+    """
+    from src.config import CATEGORIES
+
+    base_url = _kv_base_url()
+    if not base_url:
+        logger.debug("Cloudflare KV not configured. Skipping article_history write.")
+        return
+
+    # 日別記事データを構築
+    flat: list[dict[str, object]] = []
+    for cat in CATEGORIES:
+        for sa in selections.get(cat["id"], []):
+            flat.append({
+                "title": sa.article.title,
+                "source": sa.article.source,
+                "url": str(sa.article.url),
+                "category_id": sa.category_id,
+                "reason": sa.reason,
+                "thumbnail_url": sa.article.thumbnail_url,
+                "published_at": (
+                    sa.article.published_at.isoformat() if sa.article.published_at else None
+                ),
+            })
+
+    async with httpx.AsyncClient() as client:
+        # 日別記事を保存
+        try:
+            r = await client.put(
+                f"{base_url}/{_KV_ARTICLE_HISTORY_PREFIX}{date}",
+                headers={**_auth_headers(), "Content-Type": "application/json"},
+                content=json.dumps(flat),
+                timeout=10,
+            )
+            r.raise_for_status()
+        except Exception as exc:
+            logger.warning("Failed to write article history for %s: %s", date, exc)
+            return
+
+        # article_index を更新
+        try:
+            idx_resp = await client.get(
+                f"{base_url}/{_KV_ARTICLE_INDEX_KEY}",
+                headers=_auth_headers(),
+                timeout=10,
+            )
+            if idx_resp.status_code == 404:
+                index: dict[str, list[str]] = {"dates": []}
+            else:
+                idx_resp.raise_for_status()
+                index = idx_resp.json()
+        except Exception as exc:
+            logger.warning("Failed to read article_index: %s", exc)
+            index = {"dates": []}
+
+        dates: list[str] = index.get("dates", [])
+        if date not in dates:
+            dates.append(date)
+
+        cutoff = (
+            datetime.now(UTC) - timedelta(days=_MAX_ARTICLE_HISTORY_DAYS)
+        ).strftime("%Y-%m-%d")
+        expired = [d for d in dates if d < cutoff]
+        dates = [d for d in dates if d >= cutoff]
+
+        try:
+            r = await client.put(
+                f"{base_url}/{_KV_ARTICLE_INDEX_KEY}",
+                headers={**_auth_headers(), "Content-Type": "application/json"},
+                content=json.dumps({"dates": sorted(dates, reverse=True)}),
+                timeout=10,
+            )
+            r.raise_for_status()
+        except Exception as exc:
+            logger.warning("Failed to write article_index: %s", exc)
+
+        # 期限切れエントリの KV キーを削除
+        for old_date in expired:
+            try:
+                await client.delete(
+                    f"{base_url}/{_KV_ARTICLE_HISTORY_PREFIX}{old_date}",
+                    headers=_auth_headers(),
+                    timeout=10,
+                )
+            except Exception as exc:
+                logger.warning("Failed to delete expired article history %s: %s", old_date, exc)
+
+    logger.info("Wrote article history for %s (%d articles)", date, len(flat))
 
 
 async def append_feedback(action: str, title: str, source: str, url: str) -> None:

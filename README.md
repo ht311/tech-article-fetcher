@@ -18,12 +18,14 @@ Python スクリプト (src/main.py)
   │   ├── Reddit JSON API（7 サブレディット、スコア ≥ 500）
   │   └── SpeakerDeck Atom（5 カテゴリ、日本語スライドのみ）
   ├── 重複排除（URL ベース）
-  ├── Cloudflare KV からユーザー嗜好を読み込み
+  ├── Cloudflare KV からユーザー嗜好・配信設定を並列読み込み
   ├── キーワードマッチングで 5 カテゴリに分類
   │   （backend / frontend / aws / management / others）
-  ├── Gemini API (gemini-2.5-flash) でカテゴリ別に並列選定（各最大 5 件）
+  ├── 配信設定（UserSettings）に基づきフィルタ
+  │   （カテゴリ ON/OFF・ソース ON/OFF・除外キーワード）
+  ├── Gemini API (gemini-2.5-flash) でカテゴリ別に並列選定（件数・優先キーワード反映）
   ├── LINE Messaging API（Flex Message）でカテゴリ別に送信（最大 5 メッセージ）
-  └── 送信記事リストを Cloudflare KV に書き込み（グローバル 1-indexed）
+  └── 送信記事リストを Cloudflare KV に書き込み（last_articles + 日別履歴）
 
 Cloudflare Worker（常時稼働・無料）
   ├── LINE Webhook を受信・HMAC-SHA256 署名検証
@@ -31,6 +33,15 @@ Cloudflare Worker（常時稼働・無料）
   ├── KV の last_articles から記事情報を照合
   ├── KV の preferences に評価履歴を追記（最大 100 件でローテート）
   └── エラー時のみ返信（正常時は返信しない・メッセージ数節約）
+
+Cloudflare Pages（ダッシュボード・常時稼働・無料）
+  ├── Next.js 静的サイト（過去記事・統計・設定を閲覧／編集）
+  ├── Pages Functions で API を提供（同一 KV Namespace を共有）
+  │   ├── GET /api/articles   — 日別記事履歴
+  │   ├── GET /api/stats      — フィードバック統計・週次トレンド
+  │   ├── GET /api/preferences — 評価履歴
+  │   └── GET/PUT /api/settings — 配信設定の取得・更新
+  └── HTTP Basic Auth（DASHBOARD_SECRET 環境変数でパスワード保護）
 ```
 
 ## ファイル構成
@@ -42,10 +53,28 @@ tech-article-fetcher/
 │   └── Dockerfile
 ├── .github/
 │   └── workflows/
-│       └── daily-fetch.yml
+│       ├── daily-fetch.yml        # 毎朝 JST 8:00 記事収集・配信
+│       └── dashboard-deploy.yml   # dashboard/ 変更時に Cloudflare Pages へデプロイ
 ├── cloudflare/
 │   └── src/
 │       └── index.js               # LINE Webhook ハンドラー（Cloudflare Worker）
+├── dashboard/                     # Web ダッシュボード（Next.js + Tailwind）
+│   ├── app/
+│   │   ├── layout.tsx             # 共通レイアウト・ナビゲーション
+│   │   ├── page.tsx               # ホーム（今日の配信・高評価ソース）
+│   │   ├── articles/page.tsx      # 過去記事一覧（日付別）
+│   │   ├── stats/page.tsx         # 統計グラフ（Recharts）
+│   │   └── settings/page.tsx      # 配信設定フォーム
+│   ├── functions/
+│   │   ├── _middleware.ts         # HTTP Basic Auth
+│   │   └── api/
+│   │       ├── _types.ts          # 共通型定義
+│   │       ├── articles.ts        # GET /api/articles
+│   │       ├── preferences.ts     # GET /api/preferences
+│   │       ├── settings.ts        # GET / PUT /api/settings
+│   │       └── stats.ts           # GET /api/stats
+│   ├── next.config.ts             # output: 'export'（静的書き出し）
+│   └── package.json
 ├── terraform/
 │   ├── main.tf                    # Cloudflare リソース定義
 │   ├── variables.tf
@@ -77,7 +106,8 @@ tech-article-fetcher/
 ├── tests/
 │   ├── test_fetchers.py
 │   ├── test_selector.py
-│   └── test_notifier.py
+│   ├── test_notifier.py
+│   └── test_settings.py           # UserSettings・フィルタロジック
 ├── .env.example
 ├── pyproject.toml
 └── README.md
@@ -97,7 +127,7 @@ tech-article-fetcher/
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare Dashboard の URL | KV REST API |
 | `CLOUDFLARE_KV_NAMESPACE_ID` | `terraform output kv_namespace_id` | KV 操作対象 |
 
-Cloudflare API トークンに必要な権限: **Workers KV Storage: Edit**, **Workers Scripts: Edit**
+Cloudflare API トークンに必要な権限: **Workers KV Storage: Edit**, **Workers Scripts: Edit**, **Cloudflare Pages: Edit**
 
 ### 2. Cloudflare リソースを作成（Terraform）
 
@@ -111,6 +141,9 @@ terraform apply -auto-approve
 
 # KV Namespace ID を控える（GitHub Secrets に登録する）
 terraform output kv_namespace_id
+
+# ダッシュボード URL を確認
+terraform output dashboard_url
 ```
 
 ### 3. LINE Webhook URL を設定
@@ -130,7 +163,23 @@ LINE Developers コンソール > Messaging API > Webhook URL に設定してく
 - `CLOUDFLARE_ACCOUNT_ID`
 - `CLOUDFLARE_KV_NAMESPACE_ID`
 
-### 5. 動作確認
+### 5. ダッシュボードをデプロイ
+
+```bash
+# dashboard/ を push すると GitHub Actions が自動デプロイ
+# 手動デプロイの場合:
+cd dashboard
+npm ci && npm run build
+npx wrangler pages deploy out --project-name=tech-article-fetcher-dashboard
+```
+
+ダッシュボードにパスワードを設定する（任意・推奨）:
+
+1. Cloudflare Dashboard > Pages > `tech-article-fetcher-dashboard` > **Settings** > **Environment variables**
+2. **Add variable** → Name: `DASHBOARD_SECRET` / Value: 任意のパスワード → **Encrypt** にチェック
+3. 保存後、ダッシュボードにアクセスするとブラウザのパスワードダイアログが出る
+
+### 6. 動作確認
 
 ```bash
 # ローカル実行
@@ -166,7 +215,8 @@ mypy src/
 | LINE Messaging API（月200通無料） | 最大 150 通/月（5カテゴリ × 30日） | **$0** |
 | Gemini API（無料枠: 1日1500リクエスト） | 150 リクエスト/月（5カテゴリ × 30日） | **$0** |
 | Cloudflare Workers（無料枠: 10万リクエスト/日） | 30回 | **$0** |
-| Cloudflare KV（無料枠: 10万読み取り/日） | 60回 | **$0** |
+| Cloudflare KV（無料枠: 10万読み取り/日） | 〜100回/日 | **$0** |
+| Cloudflare Pages（無料枠: 500デプロイ/月） | 数回/月 | **$0** |
 | **合計** | | **$0/月** |
 
 ---
@@ -231,6 +281,13 @@ class ArticleFeedback(BaseModel):
     url: str
     timestamp: datetime
 
+class UserSettings(BaseModel):
+    categories: dict[str, bool]      # カテゴリ ON/OFF（デフォルト全て True）
+    sources_enabled: dict[str, bool] # ソース ON/OFF（空 dict は全 ON）
+    max_per_category: int = 5        # カテゴリあたり最大選定数（1〜5）
+    exclude_keywords: list[str] = [] # タイトル・サマリーにマッチしたら除外
+    include_keywords: list[str] = [] # Gemini プロンプトに追加して優先
+
 class UserPreferences(BaseModel):
     history: list[ArticleFeedback] = []
     def get_summary(self) -> str: ...  # good/bad 上位 3 ソースをマークダウンで返す
@@ -269,10 +326,12 @@ Gemini に渡す前に各カテゴリを `published_at` 降順ソートし、最
 ### 処理フロー
 
 5 カテゴリを `asyncio.gather()` で並列実行。各カテゴリに対して:
-1. カテゴリ専用のシステムプロンプトを構築（選定観点・ユーザー嗜好サマリーを含む）
+1. カテゴリ専用のシステムプロンプトを構築（選定観点・ユーザー嗜好サマリー・優先キーワードを含む）
 2. 候補記事をナンバリングしたテキストとして渡す
 3. Gemini が `[{"index": N, "reason": "理由"}]` 形式の JSON を返す
 4. インデックスで元記事を参照し `SelectedArticle` に変換
+
+選定件数は `UserSettings.max_per_category`（1〜5）で動的に変更される。
 
 ### システムプロンプト構成
 
@@ -293,6 +352,7 @@ Gemini に渡す前に各カテゴリを `published_at` 降順ソートし、最
 出力形式: JSON配列のみ
 [{"index": 0, "reason": "選定理由（日本語30字以内）"}, ...]
 
+{ユーザーが関心あるキーワード（UserSettings.include_keywords が設定されている場合）}
 {ユーザー嗜好サマリー（存在する場合）}
 ```
 
@@ -360,6 +420,36 @@ Gemini に渡す前に各カテゴリを `published_at` 降順ソートし、最
 ```
 グローバル連番（カテゴリをまたぐ）。毎回上書き。
 
+**キー: `articles:YYYY-MM-DD`**
+```json
+[
+  {
+    "title": "...", "source": "Zenn", "url": "https://...",
+    "category_id": "backend", "reason": "選定理由",
+    "thumbnail_url": "https://...", "published_at": "2026-04-19T08:00:00+00:00"
+  }
+]
+```
+日別の配信履歴。最大 90 日保持し、古いキーは自動削除。
+
+**キー: `article_index`**
+```json
+{"dates": ["2026-04-19", "2026-04-18", ...]}
+```
+配信日リスト（降順）。`articles:*` キーのインデックスとして使用。
+
+**キー: `settings`**
+```json
+{
+  "categories": {"backend": true, "frontend": false, ...},
+  "sources_enabled": {"はてブIT": false},
+  "max_per_category": 3,
+  "exclude_keywords": ["入門", "ハンズオン"],
+  "include_keywords": ["Rust", "LLM"]
+}
+```
+ダッシュボードの設定フォームで編集。配信バッチ起動時に読み込まれる。
+
 ### Gemini への嗜好反映
 
 `UserPreferences.get_summary()` で history を集計し、システムプロンプトに追記:
@@ -403,6 +493,7 @@ Gemini に渡す前に各カテゴリを `published_at` 降順ソートし、最
 |---|---|
 | `cloudflare_workers_kv_namespace` ("preferences") | KV Namespace 作成 |
 | `cloudflare_workers_script` ("webhook") | Worker スクリプトのデプロイ |
+| `cloudflare_pages_project` ("dashboard") | Pages プロジェクト作成（KV バインド共有） |
 
 ### 変数（`terraform/variables.tf`）
 
@@ -417,10 +508,13 @@ Gemini に渡す前に各カテゴリを `published_at` 降順ソートし、最
 
 - `kv_namespace_id`: GitHub Secrets の `CLOUDFLARE_KV_NAMESPACE_ID` に登録
 - `worker_url`: LINE Developers の Webhook URL に設定
+- `dashboard_url`: ダッシュボードの URL（`https://tech-article-fetcher-dashboard.pages.dev`）
 
 ---
 
-## GitHub Actions ワークフロー（`.github/workflows/daily-fetch.yml`）
+## GitHub Actions ワークフロー
+
+### `daily-fetch.yml` — 記事収集・配信
 
 ```yaml
 on:
@@ -428,6 +522,10 @@ on:
     - cron: '0 23 * * *'  # JST 8:00 毎朝
   workflow_dispatch:        # 手動実行も可
 ```
+
+### `dashboard-deploy.yml` — ダッシュボードデプロイ
+
+`dashboard/` 配下の変更が `main` にプッシュされると自動で Cloudflare Pages にデプロイ。
 
 ### 必要な GitHub Secrets
 
@@ -437,9 +535,38 @@ on:
 | `LINE_CHANNEL_ACCESS_TOKEN` | LINE Push 送信 |
 | `LINE_USER_ID` | 送信先ユーザー ID |
 | `LINE_CHANNEL_SECRET` | Webhook 署名検証 |
-| `CLOUDFLARE_API_TOKEN` | KV REST API 認証 |
-| `CLOUDFLARE_ACCOUNT_ID` | KV REST API |
+| `CLOUDFLARE_API_TOKEN` | KV REST API 認証・Pages デプロイ |
+| `CLOUDFLARE_ACCOUNT_ID` | KV REST API・Pages デプロイ |
 | `CLOUDFLARE_KV_NAMESPACE_ID` | KV Namespace 指定 |
+
+---
+
+## Web ダッシュボード（`dashboard/`）
+
+Cloudflare Pages でホストされる管理 UI。Next.js 静的書き出し + Pages Functions で構成。
+
+### ページ構成
+
+| パス | 内容 |
+|---|---|
+| `/` | ホーム — 今日の配信記事・高評価ソース Top3 |
+| `/articles/` | 過去記事 — 日付フィルタで過去90日の配信を閲覧 |
+| `/stats/` | 統計 — 週次フィードバック推移・ソース別評価・カテゴリ分布（Recharts） |
+| `/settings/` | 設定 — カテゴリ/ソース ON/OFF・件数・除外/優先キーワードを編集 |
+
+### API（Pages Functions）
+
+| エンドポイント | 説明 |
+|---|---|
+| `GET /api/articles?from=&to=` | 指定期間の日別配信記事を返す |
+| `GET /api/stats` | フィードバック統計・週次トレンド・カテゴリ分布を返す |
+| `GET /api/preferences` | 評価履歴（preferences KV）を返す |
+| `GET /api/settings` | 現在の配信設定を返す |
+| `PUT /api/settings` | 配信設定を更新する（次回配信バッチから反映） |
+
+### 認証
+
+`DASHBOARD_SECRET` 環境変数（Cloudflare Pages → Settings → Environment variables で設定）が存在する場合、HTTP Basic Auth でパスワードを要求する。
 
 ---
 

@@ -155,9 +155,9 @@ async def send_category_messages(selections: dict[str, list[SelectedArticle]]) -
     token = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN")
     user_id = os.environ.get("LINE_USER_ID")
     if not token:
-        raise EnvironmentError("LINE_CHANNEL_ACCESS_TOKEN is not set")
+        raise OSError("LINE_CHANNEL_ACCESS_TOKEN is not set")
     if not user_id:
-        raise EnvironmentError("LINE_USER_ID is not set")
+        raise OSError("LINE_USER_ID is not set")
 
     configuration = Configuration(access_token=token)
     global_offset = 0

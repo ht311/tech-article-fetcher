@@ -34,6 +34,22 @@ class ArticleFeedback(BaseModel):
     timestamp: datetime
 
 
+class UserSettings(BaseModel):
+    """配信設定。Cloudflare KV の `settings` キーに永続化される。"""
+
+    categories: dict[str, bool] = {
+        "backend": True,
+        "frontend": True,
+        "aws": True,
+        "management": True,
+        "others": True,
+    }
+    sources_enabled: dict[str, bool] = {}  # 空 dict は「全部 ON」扱い
+    max_per_category: int = 5
+    exclude_keywords: list[str] = []
+    include_keywords: list[str] = []
+
+
 class UserPreferences(BaseModel):
     """ユーザーの評価履歴。Cloudflare KV に永続化される。"""
 

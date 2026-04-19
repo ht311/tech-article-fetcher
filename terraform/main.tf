@@ -52,3 +52,25 @@ resource "cloudflare_workers_script" "webhook" {
     text = var.line_channel_access_token
   }
 }
+
+# -------------------------------------------------------------------
+# Cloudflare Pages プロジェクト（ダッシュボード）
+# dashboard/ ディレクトリを Wrangler でデプロイする
+# -------------------------------------------------------------------
+resource "cloudflare_pages_project" "dashboard" {
+  account_id        = var.cloudflare_account_id
+  name              = "tech-article-fetcher-dashboard"
+  production_branch = "main"
+
+  deployment_configs {
+    production {
+      kv_namespaces = {
+        KV = cloudflare_workers_kv_namespace.preferences.id
+      }
+    }
+  }
+}
+
+# 注: ダッシュボード認証は Pages Functions の HTTP Basic Auth (_middleware.ts) で実装。
+# DASHBOARD_SECRET 環境変数は terraform apply 後に Cloudflare Pages ダッシュボード
+# (Settings → Environment variables → Add variable → Encrypt) で手動設定してください。

@@ -4,7 +4,13 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 
-from src.config import ARTICLE_FETCH_HOURS, REDDIT_BASE_URL, REDDIT_MIN_SCORE, REDDIT_PER_PAGE, REDDIT_SUBREDDITS
+from src.config import (
+    ARTICLE_FETCH_HOURS,
+    REDDIT_BASE_URL,
+    REDDIT_MIN_SCORE,
+    REDDIT_PER_PAGE,
+    REDDIT_SUBREDDITS,
+)
 from src.models import Article
 
 logger = logging.getLogger(__name__)

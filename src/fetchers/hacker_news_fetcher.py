@@ -4,7 +4,13 @@ from datetime import UTC, datetime, timedelta
 
 import httpx
 
-from src.config import ARTICLE_FETCH_HOURS, HN_FETCH_COUNT, HN_ITEM_URL, HN_MIN_SCORE, HN_TOP_STORIES_URL
+from src.config import (
+    ARTICLE_FETCH_HOURS,
+    HN_FETCH_COUNT,
+    HN_ITEM_URL,
+    HN_MIN_SCORE,
+    HN_TOP_STORIES_URL,
+)
 from src.models import Article
 
 logger = logging.getLogger(__name__)

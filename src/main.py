@@ -14,6 +14,7 @@ tech-article-fetcher のエントリポイント。
 import asyncio
 import logging
 import sys
+from datetime import UTC, datetime
 
 from dotenv import load_dotenv
 
@@ -23,7 +24,12 @@ from src.fetchers.speakerdeck_fetcher import fetch_speakerdeck
 from src.notifier.line_notifier import send_category_messages
 from src.selector.categorizer import bucket_articles
 from src.selector.gemini_selector import deduplicate, select_articles_by_category
-from src.storage.preferences import get_preferences, write_last_articles
+from src.storage.preferences import (
+    get_preferences,
+    get_settings,
+    write_article_history,
+    write_last_articles,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -65,18 +71,46 @@ async def main() -> None:
     for cat_id, arts in buckets.items():
         logger.info("Bucket %s: %d articles", cat_id, len(arts))
 
-    preferences = await get_preferences()
+    preferences, settings = await asyncio.gather(get_preferences(), get_settings())
     if preferences.history:
         logger.info("Loaded %d preference records", len(preferences.history))
 
-    selections = await select_articles_by_category(buckets, preferences=preferences)
+    # settings に基づきバケットをフィルタ
+    lower_excludes = [kw.lower() for kw in settings.exclude_keywords]
+    for cat_id in list(buckets.keys()):
+        if not settings.categories.get(cat_id, True):
+            buckets[cat_id] = []
+            continue
+        arts = buckets[cat_id]
+        if settings.sources_enabled:
+            arts = [a for a in arts if settings.sources_enabled.get(a.source, True)]
+        if lower_excludes:
+            arts = [
+                a for a in arts
+                if not any(
+                    kw in a.title.lower() or kw in a.summary.lower()
+                    for kw in lower_excludes
+                )
+            ]
+        buckets[cat_id] = arts
+
+    selections = await select_articles_by_category(
+        buckets,
+        preferences=preferences,
+        max_per_category=settings.max_per_category,
+        include_keywords=settings.include_keywords,
+    )
     total = sum(len(v) for v in selections.values())
     logger.info("Selected total %d articles across %d categories", total, len(selections))
 
     await send_category_messages(selections)
     logger.info("LINE messages sent.")
 
-    await write_last_articles(selections)
+    today = datetime.now(UTC).strftime("%Y-%m-%d")
+    await asyncio.gather(
+        write_last_articles(selections),
+        write_article_history(today, selections),
+    )
     logger.info("Done.")
 
 

@@ -1,9 +1,9 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from src.config import CATEGORIES, GEMINI_MAX_INPUT_PER_CATEGORY
 from src.models import Article
 
-_EPOCH = datetime.min.replace(tzinfo=timezone.utc)
+_EPOCH = datetime.min.replace(tzinfo=UTC)
 
 
 def classify(article: Article) -> str:

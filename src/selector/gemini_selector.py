@@ -23,7 +23,12 @@ _DAILY_QUOTA_RE = re.compile(r"PerDay")
 logger = logging.getLogger(__name__)
 
 
-def _build_system_prompt(category: dict, pref_summary: str) -> str:
+def _build_system_prompt(
+    category: dict,
+    pref_summary: str,
+    max_count: int,
+    include_keywords: list[str],
+) -> str:
     cat_id: str = category["id"]
     cat_name: str = category["name"]
 
@@ -36,7 +41,7 @@ def _build_system_prompt(category: dict, pref_summary: str) -> str:
         category_constraint = f"{cat_name}カテゴリに明らかに無関係な記事は含めないこと"
 
     base = f"""あなたはWebエンジニア向けの技術記事キュレーターです。
-提供された記事リストから、{cat_name}カテゴリに関連するおすすめ記事を最大{SELECT_MAX_PER_CATEGORY}件選んでください。
+提供された記事リストから、{cat_name}カテゴリに関連するおすすめ記事を最大{max_count}件選んでください。
 
 優先トピック: {topic_line}
 
@@ -54,6 +59,9 @@ def _build_system_prompt(category: dict, pref_summary: str) -> str:
 出力形式: JSON配列のみ返してください。0件でも良い（適切な記事がなければ空配列 [] を返す）。
 [{{"index": 0, "reason": "選定理由（日本語30字以内）"}}, ...]"""
 
+    if include_keywords:
+        kw_line = "、".join(include_keywords)
+        base = f"{base}\n\nユーザーが特に関心あるキーワード（含まれる記事を優先）: {kw_line}"
     if pref_summary:
         base = f"{base}\n\n{pref_summary}"
     return base
@@ -138,24 +146,26 @@ async def _select_for_category(
     category: dict,
     articles: list[Article],
     pref_summary: str,
+    max_count: int,
+    include_keywords: list[str],
 ) -> tuple[str, list[SelectedArticle]]:
     cat_id: str = category["id"]
 
     if not articles:
         return (cat_id, [])
 
-    system_prompt = _build_system_prompt(category, pref_summary)
+    system_prompt = _build_system_prompt(category, pref_summary, max_count, include_keywords)
     config = types.GenerateContentConfig(system_instruction=system_prompt)
     article_text = _build_article_list_text(articles)
     prompt = (
         f"以下の記事リストから{category['name']}カテゴリのおすすめを"
-        f"最大{SELECT_MAX_PER_CATEGORY}件選んでください"
+        f"最大{max_count}件選んでください"
         f"（適切な記事がなければ空配列 [] を返す）:\n\n{article_text}"
     )
 
     for model in (GEMINI_MODEL, GEMINI_FALLBACK_MODEL):
         try:
-            selected = await _call_gemini(client, model, prompt, config, articles, SELECT_MAX_PER_CATEGORY)
+            selected = await _call_gemini(client, model, prompt, config, articles, max_count)
             for s in selected:
                 s.category_id = cat_id
             return (cat_id, selected)
@@ -169,19 +179,24 @@ async def _select_for_category(
 async def select_articles_by_category(
     buckets: dict[str, list[Article]],
     preferences: UserPreferences | None = None,
+    max_per_category: int = SELECT_MAX_PER_CATEGORY,
+    include_keywords: list[str] | None = None,
 ) -> dict[str, list[SelectedArticle]]:
-    """カテゴリごとに Gemini を並列呼び出しして最大 SELECT_MAX_PER_CATEGORY 件を選定する。
+    """カテゴリごとに Gemini を並列呼び出しして最大 max_per_category 件を選定する。
     モデル失敗時はそのカテゴリを空リストとして扱う（フォールバック選定なし）。
     """
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
-        raise EnvironmentError("GEMINI_API_KEY is not set")
+        raise OSError("GEMINI_API_KEY is not set")
 
     client = genai.Client(api_key=api_key)
     pref_summary = preferences.get_summary() if preferences else ""
+    kws = include_keywords or []
 
     tasks = [
-        _select_for_category(client, cat, buckets.get(cat["id"], []), pref_summary)
+        _select_for_category(
+            client, cat, buckets.get(cat["id"], []), pref_summary, max_per_category, kws
+        )
         for cat in CATEGORIES
     ]
     raw_results = await asyncio.gather(*tasks, return_exceptions=True)
