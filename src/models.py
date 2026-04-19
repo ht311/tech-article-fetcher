@@ -21,6 +21,7 @@ class SelectedArticle(BaseModel):
 
     article: Article
     reason: str  # 日本語30字以内の選定理由
+    category_id: str | None = None  # 大カテゴリ ID（"backend" / "frontend" / "aws" / "management" / "others"）
 
 
 class ArticleFeedback(BaseModel):

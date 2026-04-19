@@ -48,12 +48,38 @@ GEMINI_FALLBACK_MODEL = "gemini-2.5-flash"
 # 直近何時間の記事を対象にするか
 ARTICLE_FETCH_HOURS = 24
 
-# Gemini に選ばせる記事数の範囲
-SELECT_MIN = 5
-SELECT_MAX = 7
+# 大カテゴリ定義（id 順でプロンプト・LINE 送信順序が決まる）
+CATEGORIES: list[dict] = [
+    {
+        "id": "backend",
+        "name": "バックエンド",
+        "keywords": ["java", "spring", "springboot", "spring boot", "postgres", "postgresql"],
+    },
+    {
+        "id": "frontend",
+        "name": "フロントエンド",
+        "keywords": ["react", "next.js", "nextjs", "typescript"],
+    },
+    {
+        "id": "aws",
+        "name": "AWS",
+        "keywords": ["aws", "amazon web services"],
+    },
+    {
+        "id": "management",
+        "name": "マネジメント/組織",
+        "keywords": [
+            "engineering manager", "エンジニアリングマネージャー",
+            "1on1", "組織", "リーダー", "チームビルディング", "マネジメント",
+        ],
+    },
+    {"id": "others", "name": "その他", "keywords": []},
+]
 
-# Gemini に渡す記事数の上限（トークン削減のためプリフィルタリング）
-GEMINI_MAX_INPUT_ARTICLES = 25
+# カテゴリごとの最大選定件数（0 件もあり）
+SELECT_MAX_PER_CATEGORY = 5
+# Gemini に渡す候補記事数の上限（カテゴリごと）
+GEMINI_MAX_INPUT_PER_CATEGORY = 25
 
 # Gemini API エラー時のリトライ設定（指数バックオフ）
 GEMINI_MAX_RETRIES = 5

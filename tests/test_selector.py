@@ -4,14 +4,20 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from src.models import Article, SelectedArticle
-from src.selector.gemini_selector import deduplicate, select_articles
+from src.selector.categorizer import bucket_articles, classify
+from src.selector.gemini_selector import deduplicate, select_articles_by_category
 
 
-def _make_article(url: str = "https://example.com/1", source: str = "TestSource") -> Article:
+def _make_article(
+    url: str = "https://example.com/1",
+    title: str = "Test Article",
+    summary: str = "Summary",
+    source: str = "TestSource",
+) -> Article:
     return Article(
-        title="Test Article",
+        title=title,
         url=url,  # type: ignore[arg-type]
-        summary="Summary",
+        summary=summary,
         source=source,
         published_at=datetime.now(UTC),
     )
@@ -25,12 +31,13 @@ def _success_response_text() -> str:
     )
 
 
+# --- deduplicate ---
+
 def test_deduplicate_removes_duplicates() -> None:
     a1 = _make_article("https://example.com/1")
-    a2 = _make_article("https://example.com/1")  # duplicate
+    a2 = _make_article("https://example.com/1")
     a3 = _make_article("https://example.com/2")
-    result = deduplicate([a1, a2, a3])
-    assert len(result) == 2
+    assert len(deduplicate([a1, a2, a3])) == 2
 
 
 def test_deduplicate_preserves_order() -> None:
@@ -39,13 +46,97 @@ def test_deduplicate_preserves_order() -> None:
     assert [str(a.url) for a in result] == [str(a.url) for a in articles]
 
 
+# --- classify ---
+
+def test_classify_backend_java() -> None:
+    a = _make_article(title="Java で DDD を実践する", summary="")
+    assert classify(a) == "backend"
+
+
+def test_classify_backend_spring() -> None:
+    a = _make_article(title="Spring Boot 3.0 のマイグレーション", summary="")
+    assert classify(a) == "backend"
+
+
+def test_classify_backend_postgres() -> None:
+    a = _make_article(title="PostgreSQL の VACUUM", summary="")
+    assert classify(a) == "backend"
+
+
+def test_classify_frontend_react() -> None:
+    a = _make_article(title="React 19 の新機能", summary="")
+    assert classify(a) == "frontend"
+
+
+def test_classify_frontend_typescript() -> None:
+    a = _make_article(title="TypeScript 5.5 リリース", summary="")
+    assert classify(a) == "frontend"
+
+
+def test_classify_aws() -> None:
+    a = _make_article(title="AWS re:Invent 2024 まとめ", summary="")
+    assert classify(a) == "aws"
+
+
+def test_classify_management() -> None:
+    a = _make_article(title="エンジニアリングマネージャーになって1年", summary="")
+    assert classify(a) == "management"
+
+
+def test_classify_others() -> None:
+    a = _make_article(title="Rustで書くゲームエンジン", summary="")
+    assert classify(a) == "others"
+
+
+def test_classify_uses_summary_when_title_has_no_keyword() -> None:
+    a = _make_article(title="開発雑記", summary="spring boot でAPIを作った")
+    assert classify(a) == "backend"
+
+
+# --- bucket_articles ---
+
+def test_bucket_articles_distributes_correctly() -> None:
+    articles = [
+        _make_article("https://a.com/1", title="Java 入門"),
+        _make_article("https://a.com/2", title="React Hooks"),
+        _make_article("https://a.com/3", title="AWS Lambda の使い方"),
+        _make_article("https://a.com/4", title="今週のニュース"),
+    ]
+    buckets = bucket_articles(articles)
+    assert len(buckets["backend"]) == 1
+    assert len(buckets["frontend"]) == 1
+    assert len(buckets["aws"]) == 1
+    assert len(buckets["others"]) == 1
+
+
+def test_bucket_articles_truncates_to_limit() -> None:
+    from src.config import GEMINI_MAX_INPUT_PER_CATEGORY
+    articles = [
+        _make_article(f"https://a.com/{i}", title=f"Java 記事 {i}")
+        for i in range(GEMINI_MAX_INPUT_PER_CATEGORY + 5)
+    ]
+    buckets = bucket_articles(articles)
+    assert len(buckets["backend"]) == GEMINI_MAX_INPUT_PER_CATEGORY
+
+
+def test_bucket_global_index_no_collision() -> None:
+    """各カテゴリのバケットサイズが SELECT_MAX_PER_CATEGORY 以内であることを確認"""
+    from src.config import GEMINI_MAX_INPUT_PER_CATEGORY
+    articles = [_make_article(f"https://a.com/{i}") for i in range(10)]
+    buckets = bucket_articles(articles)
+    for cat_id, arts in buckets.items():
+        assert len(arts) <= GEMINI_MAX_INPUT_PER_CATEGORY, cat_id
+
+
+# --- select_articles_by_category ---
+
 @pytest.mark.asyncio
-async def test_select_articles_success() -> None:
-    articles = [_make_article(f"https://example.com/{i}") for i in range(10)]
+async def test_select_articles_by_category_success() -> None:
+    articles = [_make_article(f"https://example.com/{i}", title=f"Java 記事 {i}") for i in range(5)]
+    buckets = {"backend": articles, "frontend": [], "aws": [], "management": [], "others": []}
 
     mock_response = MagicMock()
-    mock_response.text = _success_response_text()
-
+    mock_response.text = '[{"index": 0, "reason": "理由1"}, {"index": 1, "reason": "理由2"}]'
     mock_client = MagicMock()
     mock_client.models.generate_content.return_value = mock_response
 
@@ -53,45 +144,37 @@ async def test_select_articles_success() -> None:
         patch.dict("os.environ", {"GEMINI_API_KEY": "test-key"}),
         patch("src.selector.gemini_selector.genai.Client", return_value=mock_client),
     ):
-        selected = await select_articles(articles)
-        assert len(selected) == 5
-        assert all(isinstance(s, SelectedArticle) for s in selected)
+        selections = await select_articles_by_category(buckets)
+
+    assert isinstance(selections, dict)
+    assert len(selections["backend"]) == 2
+    assert all(s.category_id == "backend" for s in selections["backend"])
+    assert selections["frontend"] == []
 
 
 @pytest.mark.asyncio
-async def test_select_articles_raises_without_api_key() -> None:
-    articles = [_make_article()]
+async def test_select_articles_by_category_raises_without_api_key() -> None:
+    buckets = {"backend": [], "frontend": [], "aws": [], "management": [], "others": []}
     with patch.dict("os.environ", {}, clear=True):
         import os
-
         os.environ.pop("GEMINI_API_KEY", None)
         with pytest.raises(EnvironmentError):
-            await select_articles(articles)
+            await select_articles_by_category(buckets)
 
 
 @pytest.mark.asyncio
-async def test_select_articles_retries_on_failure() -> None:
-    articles = [_make_article(f"https://example.com/{i}") for i in range(10)]
-
-    call_count = 0
-    success_response = MagicMock()
-    success_response.text = _success_response_text()
-
-    def mock_generate(**kwargs: object) -> MagicMock:
-        nonlocal call_count
-        call_count += 1
-        if call_count < 2:
-            raise Exception("Transient error")
-        return success_response
+async def test_select_articles_by_category_empty_on_gemini_failure() -> None:
+    articles = [_make_article(f"https://example.com/{i}", title=f"Java 記事 {i}") for i in range(3)]
+    buckets = {"backend": articles, "frontend": [], "aws": [], "management": [], "others": []}
 
     mock_client = MagicMock()
-    mock_client.models.generate_content.side_effect = mock_generate
+    mock_client.models.generate_content.side_effect = Exception("API error")
 
     with (
         patch.dict("os.environ", {"GEMINI_API_KEY": "test-key"}),
         patch("src.selector.gemini_selector.genai.Client", return_value=mock_client),
         patch("src.selector.gemini_selector.asyncio.sleep", new_callable=AsyncMock),
     ):
-        selected = await select_articles(articles)
-        assert len(selected) == 5
-        assert call_count == 2
+        selections = await select_articles_by_category(buckets)
+
+    assert selections["backend"] == []

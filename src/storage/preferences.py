@@ -67,14 +67,27 @@ async def get_preferences() -> UserPreferences:
         return UserPreferences()
 
 
-async def write_last_articles(articles: list[SelectedArticle]) -> None:
+async def write_last_articles(
+    articles: list[SelectedArticle] | dict[str, list[SelectedArticle]],
+) -> None:
     """送信した記事リストを KV に保存する。
     Cloudflare Worker が「👍N」フィードバック受信時に記事情報を照合するために使う。
+    dict[category_id, list] を渡した場合は CATEGORIES 順にフラット化する。
     """
+    from src.config import CATEGORIES
+
     base_url = _kv_base_url()
     if not base_url:
         logger.debug("Cloudflare KV not configured. Skipping last_articles write.")
         return
+
+    flat: list[SelectedArticle]
+    if isinstance(articles, dict):
+        flat = []
+        for cat in CATEGORIES:
+            flat.extend(articles.get(cat["id"], []))
+    else:
+        flat = articles
 
     data = {
         str(i + 1): {
@@ -82,7 +95,7 @@ async def write_last_articles(articles: list[SelectedArticle]) -> None:
             "source": sa.article.source,
             "url": str(sa.article.url),
         }
-        for i, sa in enumerate(articles)
+        for i, sa in enumerate(flat)
     }
 
     try:
