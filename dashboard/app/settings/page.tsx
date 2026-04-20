@@ -153,8 +153,12 @@ export default function SettingsPage() {
                       alert("デフォルトが未 seed です。python -m src.seed を実行してください。");
                       return;
                     }
-                    const defaults = await res.json() as { sources?: SourceDef[] };
-                    setSettings({ ...settings, sources: defaults.sources ?? [] });
+                    const defaults = await res.json() as { sources?: SourceDef[]; category_defs?: UserSettings["category_defs"] };
+                    setSettings({
+                      ...settings,
+                      sources: defaults.sources ?? [],
+                      category_defs: defaults.category_defs ?? [],
+                    });
                   }}
                   className="px-3 py-1.5 bg-blue-50 text-blue-700 text-sm rounded hover:bg-blue-100"
                 >
