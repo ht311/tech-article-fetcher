@@ -256,7 +256,7 @@ export default function SettingsPage() {
               <HelpText>配信バッチの動作を数値で調整します。変更は保存後、次回配信バッチ（毎日 JST 8:00）から反映されます。</HelpText>
               <div className="mt-4">
                 <ParamsEditor
-                  maxPerCategory={settings.max_per_category}
+                  maxPerCategory={settings.max_per_category ?? 5}
                   articleFetchHours={settings.article_fetch_hours ?? 24}
                   geminiMaxInput={settings.gemini_max_input_per_category ?? 25}
                   enabledCategoryCount={enabledCategoryCount}
@@ -274,13 +274,13 @@ export default function SettingsPage() {
                 <KeywordList
                   label="優先キーワード"
                   description='Gemini に「これらを含む記事を優先せよ」と追加指示します。例: React, TypeScript'
-                  keywords={settings.include_keywords}
+                  keywords={settings.include_keywords ?? []}
                   onChange={(kws) => setSettings({ ...settings, include_keywords: kws })}
                 />
                 <KeywordList
                   label="除外キーワード"
                   description="タイトル・要約にマッチした記事は配信候補から除外します。例: PR, 広告"
-                  keywords={settings.exclude_keywords}
+                  keywords={settings.exclude_keywords ?? []}
                   onChange={(kws) => setSettings({ ...settings, exclude_keywords: kws })}
                 />
               </div>

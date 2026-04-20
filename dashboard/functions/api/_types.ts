@@ -1,3 +1,5 @@
+export type { SourceDef, CategoryDef, UserSettings } from "./_types.generated";
+
 export interface Env {
   KV: KVNamespace;
 }
@@ -12,35 +14,9 @@ export interface ArticleHistoryEntry {
   published_at: string | null;
 }
 
-export interface SourceDef {
-  name: string;
-  type: "rss" | "qiita" | "speakerdeck";
-  url?: string;
-  params?: Record<string, string | number | string[]>;
-  enabled: boolean;
-}
+export const VALID_SOURCE_TYPES: ("rss" | "qiita" | "speakerdeck")[] = ["rss", "qiita", "speakerdeck"];
 
-export interface CategoryDef {
-  id: string;
-  name: string;
-  keywords: string[];
-  enabled: boolean;
-  order: number;
-}
-
-export interface UserSettings {
-  max_per_category: number;
-  exclude_keywords: string[];
-  include_keywords: string[];
-  sources?: SourceDef[];
-  category_defs?: CategoryDef[];
-  article_fetch_hours?: number;
-  gemini_max_input_per_category?: number;
-}
-
-export const VALID_SOURCE_TYPES: SourceDef["type"][] = ["rss", "qiita", "speakerdeck"];
-
-export const TYPE_LABELS: Record<SourceDef["type"], string> = {
+export const TYPE_LABELS: Record<"rss" | "qiita" | "speakerdeck", string> = {
   rss: "RSS",
   qiita: "Qiita",
   speakerdeck: "SpeakerDeck",

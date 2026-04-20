@@ -1,33 +1,16 @@
 """src/core と dashboard/functions/api の契約整合性テスト。
 
-Python 側 (Pydantic モデル / kv_keys.py) と TypeScript 側 (_types.ts / _kv_keys.ts) が
-同期していることを検証する。TS ファイルを正規表現でパースして比較する。
+型フィールドの整合性は scripts/gen_types.py の自動生成 + CI ドリフト検出で担保する。
+ここでは KV キー名とデフォルト設定の整合性のみ検証する。
 """
 
 import re
 from pathlib import Path
 
 from src.core import kv_keys
-from src.core.models import CategoryDef, SourceDef, UserSettings
 from src.core.runtime_config import build_default_user_settings
 
 DASHBOARD_FUNCTIONS = Path(__file__).parent.parent / "dashboard" / "functions" / "api"
-
-
-# ── ユーティリティ ──────────────────────────────────────────────────────────────
-
-def _ts_interface_fields(ts_source: str, interface_name: str) -> set[str]:
-    """TypeScript interface の非オプショナル・オプショナル含むフィールド名を抽出する。"""
-    pattern = rf"interface\s+{interface_name}\s*\{{([^}}]+)\}}"
-    m = re.search(pattern, ts_source, re.DOTALL)
-    assert m, f"interface {interface_name} not found"
-    body = m.group(1)
-    # "fieldName?:" or "fieldName:" から名前だけ取り出す
-    return {
-        field.strip().rstrip("?")
-        for line in body.splitlines()
-        if (field := line.strip().split(":")[0]) and not field.startswith("//")
-    } - {""}
 
 
 def _ts_const_string_values(ts_source: str) -> dict[str, str]:
@@ -36,29 +19,6 @@ def _ts_const_string_values(ts_source: str) -> dict[str, str]:
     for m in re.finditer(r'export\s+const\s+(\w+)\s*=\s*"([^"]+)"', ts_source):
         result[m.group(1)] = m.group(2)
     return result
-
-
-# ── 型フィールド整合性 ──────────────────────────────────────────────────────────
-
-def test_source_def_fields_match() -> None:
-    types_ts = (DASHBOARD_FUNCTIONS / "_types.ts").read_text()
-    ts_fields = _ts_interface_fields(types_ts, "SourceDef")
-    py_fields = set(SourceDef.model_fields.keys())
-    assert py_fields == ts_fields, f"SourceDef mismatch: py={py_fields}, ts={ts_fields}"
-
-
-def test_category_def_fields_match() -> None:
-    types_ts = (DASHBOARD_FUNCTIONS / "_types.ts").read_text()
-    ts_fields = _ts_interface_fields(types_ts, "CategoryDef")
-    py_fields = set(CategoryDef.model_fields.keys())
-    assert py_fields == ts_fields, f"CategoryDef mismatch: py={py_fields}, ts={ts_fields}"
-
-
-def test_user_settings_fields_match() -> None:
-    types_ts = (DASHBOARD_FUNCTIONS / "_types.ts").read_text()
-    ts_fields = _ts_interface_fields(types_ts, "UserSettings")
-    py_fields = set(UserSettings.model_fields.keys())
-    assert py_fields == ts_fields, f"UserSettings mismatch: py={py_fields}, ts={ts_fields}"
 
 
 # ── KV キー名整合性 ─────────────────────────────────────────────────────────────

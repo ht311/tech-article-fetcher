@@ -49,7 +49,7 @@ function KeywordChips({
 
 export default function CategoryEditor({ categories, onChange }: CategoryEditorProps) {
   const [confirmIdx, setConfirmIdx] = useState<number | null>(null);
-  const sorted = [...categories].sort((a, b) => a.order - b.order);
+  const sorted = [...categories].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
   const update = (idx: number, patch: Partial<CategoryDef>) => {
     const next = sorted.map((c, i) => (i === idx ? { ...c, ...patch } : c));
@@ -120,7 +120,7 @@ export default function CategoryEditor({ categories, onChange }: CategoryEditorP
                 >✕</button>
               </div>
             </div>
-            <KeywordChips keywords={cat.keywords} onChange={(kws) => update(idx, { keywords: kws })} />
+            <KeywordChips keywords={cat.keywords ?? []} onChange={(kws) => update(idx, { keywords: kws })} />
           </div>
         ))}
         <button onClick={add} className="text-sm text-blue-600 hover:underline">+ カテゴリを追加</button>
