@@ -19,6 +19,7 @@
         "hashicorp.terraform"
       ],
       "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
         "python.defaultInterpreterPath": "/usr/local/bin/python",
         "[python]": {
           "editor.formatOnSave": true,

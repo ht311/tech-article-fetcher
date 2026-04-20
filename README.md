@@ -500,7 +500,7 @@ on:
 
 ## Web ダッシュボード（`dashboard/`）
 
-Cloudflare Pages でホストされる管理 UI。Next.js 静的書き出し + Pages Functions で構成。
+Cloudflare Pages でホストされる管理 UI。Next.js 静的書き出し + Pages Functions で構成。UI プリミティブに Radix UI（Tooltip・Dialog）、スタイリングに Tailwind CSS v4 を使用。
 
 ### ページ構成
 
@@ -509,7 +509,7 @@ Cloudflare Pages でホストされる管理 UI。Next.js 静的書き出し + P
 | `/` | ホーム — 今日の配信記事・高評価ソース Top3 |
 | `/articles/` | 過去記事 — 日付フィルタで過去90日の配信を閲覧 |
 | `/stats/` | 統計 — 週次フィードバック推移・ソース別評価・カテゴリ分布（Recharts） |
-| `/settings/` | 設定 — カテゴリ/ソース ON/OFF・件数・除外/優先キーワードを編集 |
+| `/settings/` | 設定 — カテゴリ/ソース ON/OFF・件数・除外/優先キーワードを編集。各操作の影響をツールチップ・プレビュー文・確認ダイアログで事前に提示。未保存変更インジケータと離脱警告付き |
 
 ### API（Pages Functions）
 
