@@ -125,9 +125,25 @@ export default function SettingsPage() {
                 onChange={(cats) => setSettings({ ...settings, category_defs: cats })}
               />
             ) : (
-              <p className="text-sm text-gray-500">
-                カテゴリを管理するには「ソース」タブで初期化してください。
-              </p>
+              <div className="space-y-3">
+                <p className="text-sm text-gray-500">
+                  カテゴリが未設定です。デフォルトから初期化してください。
+                </p>
+                <button
+                  onClick={async () => {
+                    const res = await fetch("/api/defaults");
+                    if (!res.ok) {
+                      alert("デフォルトが未 seed です。python -m src.seed を実行してください。");
+                      return;
+                    }
+                    const defaults = await res.json() as { category_defs?: UserSettings["category_defs"] };
+                    setSettings({ ...settings, category_defs: defaults.category_defs ?? [] });
+                  }}
+                  className="px-3 py-1.5 bg-blue-50 text-blue-700 text-sm rounded hover:bg-blue-100"
+                >
+                  カテゴリを初期化する
+                </button>
+              </div>
             )}
           </>
         )}
