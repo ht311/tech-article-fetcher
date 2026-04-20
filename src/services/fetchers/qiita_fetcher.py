@@ -19,7 +19,7 @@ def _parse_qiita_item(item: dict) -> Article | None:  # type: ignore[type-arg]
         return Article(
             title=item["title"],
             url=item["url"],
-            summary=item.get("body", "")[:300],
+            summary=(item.get("body") or "")[:300],
             source="Qiita",
             published_at=published_at,
         )

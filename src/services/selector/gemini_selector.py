@@ -53,7 +53,7 @@ def _build_system_prompt(
 - 内容が浅い入門記事（初心者向けハンズオンなど）
 - {category_constraint}
 
-出力形式: JSON配列のみ返してください。0件でも良い（適切な記事がなければ空配列 [] を返す）。
+出力形式: JSON配列のみ返してください。記事がある場合は必ず1件以上選ぶこと。
 [{{"index": 0, "reason": "選定理由（日本語30字以内）"}}, ...]"""
 
     if include_keywords:
@@ -139,6 +139,13 @@ async def _call_gemini(
     raise RuntimeError(f"All {GEMINI_MAX_RETRIES} retries exhausted for model {model}")
 
 
+def _fallback_selection(articles: list[Article], category_id: str) -> list[SelectedArticle]:
+    """Gemini が 0 件返したときのフォールバック: 先頭1件を自動選定する。"""
+    s = SelectedArticle(article=articles[0], reason="自動選定")
+    s.category_id = category_id
+    return [s]
+
+
 async def _select_for_category(
     client: genai.Client,
     category: CategoryDef,
@@ -156,7 +163,7 @@ async def _select_for_category(
     prompt = (
         f"以下の記事リストから{category.name}カテゴリのおすすめを"
         f"最大{max_count}件選んでください"
-        f"（適切な記事がなければ空配列 [] を返す）:\n\n{article_text}"
+        f"（必ず1件以上選ぶこと）:\n\n{article_text}"
     )
 
     for model in (GEMINI_MODEL, GEMINI_FALLBACK_MODEL):
@@ -164,12 +171,14 @@ async def _select_for_category(
             selected = await _call_gemini(client, model, prompt, cfg, articles, max_count)
             for s in selected:
                 s.category_id = category.id
+            if not selected:
+                selected = _fallback_selection(articles, category.id)
             return (category.id, selected)
         except Exception as exc:
             logger.warning("Gemini model %s failed for category %s: %s", model, category.id, exc)
 
-    logger.warning("All Gemini models failed for category %s; returning empty", category.id)
-    return (category.id, [])
+    logger.warning("All Gemini models failed for category %s; using fallback", category.id)
+    return (category.id, _fallback_selection(articles, category.id))
 
 
 async def select_articles_by_category(

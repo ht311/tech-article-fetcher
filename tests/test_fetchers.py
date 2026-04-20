@@ -136,6 +136,30 @@ async def test_fetch_qiita_handles_error() -> None:
 
 
 @pytest.mark.asyncio
+async def test_fetch_qiita_body_none_parses_successfully() -> None:
+    """body=None (認証なし API レスポンス) でもパースに成功すること。"""
+    item = {
+        "title": "テスト記事",
+        "url": "https://qiita.com/items/abc",
+        "body": None,
+        "created_at": datetime.now(UTC).isoformat(),
+    }
+    mock_response = MagicMock()
+    mock_response.raise_for_status = MagicMock()
+    mock_response.json.return_value = [item]
+
+    with patch("src.services.fetchers.qiita_fetcher.httpx.AsyncClient") as mock_client_cls:
+        mock_client = AsyncMock()
+        mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+        mock_client.get.return_value = mock_response
+
+        articles = await fetch_qiita([_qiita_source("Java")], hours=24)
+        assert len(articles) == 1
+        assert articles[0].summary == ""
+
+
+@pytest.mark.asyncio
 async def test_fetch_qiita_no_sources_returns_articles() -> None:
     """Qiita ソースがない場合でも一般クエリ分は実行される。"""
     mock_response = MagicMock()

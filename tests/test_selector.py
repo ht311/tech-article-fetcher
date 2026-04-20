@@ -197,4 +197,6 @@ async def test_select_articles_by_category_empty_on_gemini_failure() -> None:
     ):
         selections = await select_articles_by_category(buckets, _DEFAULT_CATS)
 
-    assert selections["backend"] == []
+    assert len(selections["backend"]) == 1
+    assert selections["backend"][0].article == articles[0]
+    assert selections["backend"][0].reason == "自動選定"

@@ -18,7 +18,6 @@ RSS_SOURCES: list[dict[str, str]] = [
     {"name": "GitHub Blog", "url": "https://github.blog/feed/"},
     {"name": "AWS Blog", "url": "https://aws.amazon.com/blogs/aws/feed/"},
     {"name": "Cloudflare Blog", "url": "https://blog.cloudflare.com/rss/"},
-    {"name": "Vercel Blog", "url": "https://vercel.com/blog/rss.xml"},
 ]
 
 # 優先検索トピック（Gemini 選定基準・Qiita タグ検索・Reddit サブレディットに反映される）

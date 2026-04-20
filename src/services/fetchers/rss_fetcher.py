@@ -10,6 +10,8 @@ from src.core.models import Article, SourceDef
 
 logger = logging.getLogger(__name__)
 
+_HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; tech-article-fetcher/1.0)", "Accept": "*/*"}
+
 
 def _parse_published(entry: feedparser.FeedParserDict) -> datetime | None:
     for attr in ("published_parsed", "updated_parsed"):
@@ -81,7 +83,7 @@ async def fetch_all_rss(sources: list[SourceDef], hours: int) -> list[Article]:
     rss_sources = [s for s in sources if s.type == "rss"]
     cutoff = datetime.now(UTC) - timedelta(hours=hours)
 
-    async with httpx.AsyncClient(follow_redirects=True) as client:
+    async with httpx.AsyncClient(follow_redirects=True, headers=_HEADERS) as client:
         tasks = [fetch_rss_source(client, source) for source in rss_sources]
         results = await asyncio.gather(*tasks)
 
