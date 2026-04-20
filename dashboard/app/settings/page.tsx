@@ -125,25 +125,9 @@ export default function SettingsPage() {
                 onChange={(cats) => setSettings({ ...settings, category_defs: cats })}
               />
             ) : (
-              /* v1 互換: category_defs 未設定時は v1 の ON/OFF のみ表示 */
-              <div className="space-y-3">
-                {Object.entries(settings.categories).map(([id, enabled]) => (
-                  <label key={id} className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={enabled !== false}
-                      onChange={(e) =>
-                        setSettings({ ...settings, categories: { ...settings.categories, [id]: e.target.checked } })
-                      }
-                      className="w-4 h-4 accent-blue-600"
-                    />
-                    <span className="text-sm">{id}</span>
-                  </label>
-                ))}
-                <p className="text-xs text-gray-400 mt-2">
-                  v2 設定を有効にするには「ソース」タブで保存してください。
-                </p>
-              </div>
+              <p className="text-sm text-gray-500">
+                カテゴリを管理するには「ソース」タブで初期化してください。
+              </p>
             )}
           </>
         )}

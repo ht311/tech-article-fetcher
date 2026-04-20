@@ -57,19 +57,13 @@ class CategoryDef(BaseModel):
 class UserSettings(BaseModel):
     """配信設定。Cloudflare KV の `settings` キーに永続化される。"""
 
-    # v1 互換フィールド（空 dict は「全部 ON」扱い。sources_enabled と同じ規則）
-    categories: dict[str, bool] = {}
-    sources_enabled: dict[str, bool] = {}
     max_per_category: int = 5
     exclude_keywords: list[str] = []
     include_keywords: list[str] = []
-
-    # v2 新フィールド（未設定時は fetcher が config デフォルトを使用）
     sources: list[SourceDef] | None = None
     category_defs: list[CategoryDef] | None = None
     article_fetch_hours: int | None = None
     gemini_max_input_per_category: int | None = None
-    schema_version: Literal[1, 2] | None = None
 
 
 class UserPreferences(BaseModel):

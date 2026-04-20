@@ -24,42 +24,13 @@ def _merge_with_defaults(sources: list[SourceDef]) -> list[SourceDef]:
     return sources + extras
 
 
-def _apply_sources_enabled(
-    sources: list[SourceDef], sources_enabled: dict[str, bool]
-) -> list[SourceDef]:
-    if not sources_enabled:
-        return sources
-    return [
-        s.model_copy(update={"enabled": sources_enabled[s.name]})
-        if s.name in sources_enabled
-        else s
-        for s in sources
-    ]
-
-
-def _apply_categories_flag(
-    cats: list[CategoryDef], categories: dict[str, bool]
-) -> list[CategoryDef]:
-    if not categories:
-        return cats
-    return [
-        c.model_copy(update={"enabled": categories[c.id]})
-        if c.id in categories
-        else c
-        for c in cats
-    ]
-
-
 def build_default_user_settings() -> UserSettings:
-    """src/core/config.py のデフォルト定義から UserSettings v2 を生成する。
+    """src/core/config.py のデフォルト定義から UserSettings を生成する。
     KV の default_settings キーに書き込むためのスナップショットとして使う。
     """
     return UserSettings(
-        schema_version=2,
         sources=[SourceDef.model_validate(s) for s in config.default_sources()],
         category_defs=[CategoryDef.model_validate(c) for c in config.default_category_defs()],
-        categories={},
-        sources_enabled={},
     )
 
 
@@ -70,7 +41,6 @@ def build_runtime_config(settings: UserSettings) -> RuntimeConfig:
     else:
         raw_sources = [SourceDef.model_validate(s) for s in config.default_sources()]
 
-    raw_sources = _apply_sources_enabled(raw_sources, settings.sources_enabled)
     enabled_sources = [s for s in raw_sources if s.enabled]
 
     # --- category_defs ---
@@ -79,7 +49,6 @@ def build_runtime_config(settings: UserSettings) -> RuntimeConfig:
     else:
         raw_cats = [CategoryDef.model_validate(c) for c in config.default_category_defs()]
 
-    raw_cats = _apply_categories_flag(raw_cats, settings.categories)
     enabled_cats = sorted([c for c in raw_cats if c.enabled], key=lambda c: c.order)
 
     return RuntimeConfig(

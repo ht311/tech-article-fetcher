@@ -37,26 +37,7 @@ def test_v2_sources_filters_disabled() -> None:
     assert rc.category_defs[0].id == "backend"
 
 
-# (b) v1 sources_enabled / categories only → defaults with ON/OFF overlay
-def test_v1_only_sources_enabled_overlay() -> None:
-    settings = UserSettings(
-        sources_enabled={"Zenn": False},
-    )
-    rc = build_runtime_config(settings)
-    assert all(s.name != "Zenn" for s in rc.sources)
-    assert len(rc.sources) == _default_src_count() - 1
-
-
-def test_v1_only_categories_overlay() -> None:
-    settings = UserSettings(
-        categories={"backend": True, "frontend": False, "aws": True, "management": True, "others": True},  # noqa: E501
-    )
-    rc = build_runtime_config(settings)
-    assert all(c.id != "frontend" for c in rc.category_defs)
-    assert len(rc.category_defs) == _default_cat_count() - 1
-
-
-# (c) empty UserSettings → all config defaults
+# (b) empty UserSettings → all config defaults
 def test_empty_settings_uses_all_defaults() -> None:
     settings = UserSettings()
     rc = build_runtime_config(settings)
@@ -65,36 +46,6 @@ def test_empty_settings_uses_all_defaults() -> None:
     assert rc.article_fetch_hours == config.ARTICLE_FETCH_HOURS
     assert rc.gemini_max_input_per_category == config.GEMINI_MAX_INPUT_PER_CATEGORY
     assert rc.max_per_category == 5
-
-
-# (d) v2 fields + v1 ON/OFF mixed → v2 base, v1 overlays
-def test_v2_sources_with_v1_sources_enabled_overlay() -> None:
-    settings = UserSettings(
-        sources=[
-            SourceDef(name="SourceA", type="rss", url="https://a.com/feed", enabled=True),
-            SourceDef(name="SourceB", type="rss", url="https://b.com/feed", enabled=True),
-        ],
-        sources_enabled={"SourceA": False},
-    )
-    rc = build_runtime_config(settings)
-    # SourceA disabled via overlay; SourceB + all defaults remain enabled
-    assert all(s.name != "SourceA" for s in rc.sources)
-    source_names = [s.name for s in rc.sources]
-    assert "SourceB" in source_names
-    assert len(rc.sources) == 1 + _default_src_count()
-
-
-def test_v2_category_defs_with_v1_categories_overlay() -> None:
-    settings = UserSettings(
-        category_defs=[
-            CategoryDef(id="backend", name="B", keywords=["java"], enabled=True, order=0),
-            CategoryDef(id="frontend", name="F", keywords=["react"], enabled=True, order=1),
-        ],
-        categories={"frontend": False},
-    )
-    rc = build_runtime_config(settings)
-    assert all(c.id != "frontend" for c in rc.category_defs)
-    assert len(rc.category_defs) == 1
 
 
 # article_fetch_hours / gemini_max_input_per_category

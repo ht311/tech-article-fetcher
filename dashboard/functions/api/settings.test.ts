@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { validateSettings } from "./settings";
 
 describe("validateSettings", () => {
-  it("returns null for valid v1 settings", () => {
+  it("returns null for valid settings", () => {
     expect(validateSettings({ max_per_category: 3 })).toBeNull();
   });
 
@@ -28,39 +28,39 @@ describe("validateSettings", () => {
 
   it("rejects duplicate source names", () => {
     const sources = [
-      { name: "Zenn", type: "rss" as const, url: "https://zenn.dev/feed", enabled: true },
-      { name: "Zenn", type: "rss" as const, url: "https://zenn.dev/feed", enabled: true },
+      { name: "TestSource", type: "rss" as const, url: "https://example.com/feed", enabled: true },
+      { name: "TestSource", type: "rss" as const, url: "https://example.com/feed", enabled: true },
     ];
     expect(validateSettings({ sources })).toMatch(/Duplicate source name/);
   });
 
   it("rejects invalid source type", () => {
-    const sources = [{ name: "HN", type: "hackernews" as never, enabled: true }];
+    const sources = [{ name: "TestSource", type: "hackernews" as never, enabled: true }];
     expect(validateSettings({ sources })).toMatch(/Invalid source type/);
   });
 
   it("rejects rss source without url", () => {
-    const sources = [{ name: "Zenn", type: "rss" as const, enabled: true }];
+    const sources = [{ name: "TestSource", type: "rss" as const, enabled: true }];
     expect(validateSettings({ sources })).toMatch(/requires a url/);
   });
 
   it("accepts rss source with url", () => {
-    const sources = [{ name: "Zenn", type: "rss" as const, url: "https://zenn.dev/feed", enabled: true }];
+    const sources = [{ name: "TestSource", type: "rss" as const, url: "https://example.com/feed", enabled: true }];
     expect(validateSettings({ sources })).toBeNull();
   });
 
   it("rejects duplicate category ids", () => {
     const category_defs = [
-      { id: "backend", name: "バックエンド", keywords: [], enabled: true, order: 0 },
-      { id: "backend", name: "Backend", keywords: [], enabled: true, order: 1 },
+      { id: "cat_a", name: "カテゴリA", keywords: [], enabled: true, order: 0 },
+      { id: "cat_a", name: "カテゴリA (dupe)", keywords: [], enabled: true, order: 1 },
     ];
     expect(validateSettings({ category_defs })).toMatch(/Duplicate category id/);
   });
 
   it("accepts valid category_defs", () => {
     const category_defs = [
-      { id: "backend", name: "バックエンド", keywords: ["java"], enabled: true, order: 0 },
-      { id: "frontend", name: "フロントエンド", keywords: ["react"], enabled: true, order: 1 },
+      { id: "cat_a", name: "カテゴリA", keywords: ["java"], enabled: true, order: 0 },
+      { id: "cat_b", name: "カテゴリB", keywords: ["react"], enabled: true, order: 1 },
     ];
     expect(validateSettings({ category_defs })).toBeNull();
   });

@@ -83,9 +83,8 @@ def test_kv_keys_match_ts() -> None:
 
 # ── デフォルト設定の整合性 ──────────────────────────────────────────────────────
 
-def test_build_default_user_settings_is_v2() -> None:
+def test_build_default_user_settings_has_sources_and_categories() -> None:
     defaults = build_default_user_settings()
-    assert defaults.schema_version == 2
     assert defaults.sources is not None and len(defaults.sources) > 0
     assert defaults.category_defs is not None and len(defaults.category_defs) > 0
 

@@ -47,3 +47,7 @@ python_functions = "test_*"
 [tool.mypy]
 python_version = "3.12"
 strict = true
+
+[[tool.mypy.overrides]]
+module = ["feedparser", "linebot.*"]
+ignore_missing_imports = true

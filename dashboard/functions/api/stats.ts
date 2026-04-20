@@ -53,8 +53,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
       if (!raw) continue;
       const articles: ArticleHistoryEntry[] = JSON.parse(raw);
       for (const a of articles) {
-        const cat = a.category_id ?? "others";
-        categoryCount[cat] = (categoryCount[cat] ?? 0) + 1;
+        const cat = a.category_id;
+        if (cat) categoryCount[cat] = (categoryCount[cat] ?? 0) + 1;
       }
     }
   }

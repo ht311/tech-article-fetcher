@@ -3,8 +3,6 @@ import { VALID_SOURCE_TYPES } from "./_types";
 import { KV_SETTINGS } from "./_kv_keys";
 
 const EMPTY_SETTINGS: UserSettings = {
-  categories: {},
-  sources_enabled: {},
   max_per_category: 5,
   exclude_keywords: [],
   include_keywords: [],
@@ -82,13 +80,6 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env }) => {
   const current = await env.KV.get(KV_SETTINGS);
   const existing: UserSettings = current ? JSON.parse(current) : { ...EMPTY_SETTINGS };
   const merged: UserSettings = { ...existing, ...body };
-
-  // 透過的 v1→v2 マイグレーション: sources / category_defs が未設定なら schema_version を 1 のまま維持
-  if (merged.sources !== undefined || merged.category_defs !== undefined) {
-    merged.schema_version = 2;
-  } else if (!merged.schema_version) {
-    merged.schema_version = 1;
-  }
 
   await env.KV.put(KV_SETTINGS, JSON.stringify(merged));
   return Response.json(merged);
