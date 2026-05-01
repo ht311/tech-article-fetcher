@@ -1,0 +1,22 @@
+{
+  "max_per_category": 5,
+  "exclude_keywords": ["転職", "副業"],
+  "include_keywords": ["TypeScript", "Rust", "AI"],
+  "article_fetch_hours": 24,
+  "gemini_max_input_per_category": 30,
+  "sources": [
+    { "name": "Zenn", "type": "rss", "url": "https://zenn.dev/feed", "enabled": true },
+    { "name": "Qiita", "type": "qiita", "url": null, "params": { "tags": ["TypeScript", "Rust", "Go", "Python", "AWS", "React", "Next.js", "AI"] }, "enabled": true },
+    { "name": "AWS Blog", "type": "rss", "url": "https://aws.amazon.com/jp/blogs/news/feed/", "enabled": true },
+    { "name": "dev.to", "type": "rss", "url": "https://dev.to/feed", "enabled": true },
+    { "name": "Hacker News", "type": "rss", "url": "https://news.ycombinator.com/rss", "enabled": true },
+    { "name": "SpeakerDeck", "type": "speakerdeck", "url": null, "params": { "categories": ["backend", "frontend", "aws"] }, "enabled": false }
+  ],
+  "category_defs": [
+    { "id": "backend", "name": "バックエンド", "keywords": ["API", "サーバー", "DB", "Rust", "Go", "Python"], "enabled": true, "order": 1 },
+    { "id": "frontend", "name": "フロントエンド", "keywords": ["React", "Next.js", "TypeScript", "CSS"], "enabled": true, "order": 2 },
+    { "id": "aws", "name": "AWS・クラウド", "keywords": ["AWS", "Lambda", "S3", "ECS", "Terraform"], "enabled": true, "order": 3 },
+    { "id": "management", "name": "マネジメント", "keywords": ["EM", "OKR", "採用", "組織"], "enabled": true, "order": 4 },
+    { "id": "others", "name": "その他", "keywords": [], "enabled": true, "order": 5 }
+  ]
+}

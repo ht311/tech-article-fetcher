@@ -1,0 +1,83 @@
+{
+  "dates": ["2026-05-01", "2026-04-30", "2026-04-29"],
+  "articles": {
+    "2026-05-01": [
+      {
+        "title": "TypeScript 5.5 の新機能：型推論の強化と Performance 改善",
+        "source": "Zenn",
+        "url": "https://example.com/ts55",
+        "category_id": "frontend",
+        "reason": "TypeScript の主要アップデート",
+        "thumbnail_url": null,
+        "published_at": "2026-05-01T08:00:00Z"
+      },
+      {
+        "title": "Rust で書く高速 CLI ツール入門",
+        "source": "Qiita",
+        "url": "https://example.com/rust-cli",
+        "category_id": "backend",
+        "reason": "Rust 実践記事",
+        "thumbnail_url": null,
+        "published_at": "2026-05-01T07:30:00Z"
+      },
+      {
+        "title": "AWS Lambda の Cold Start を 90% 削減した話",
+        "source": "AWS Blog",
+        "url": "https://example.com/lambda-cold",
+        "category_id": "aws",
+        "reason": "Lambda 最適化の実践知見",
+        "thumbnail_url": null,
+        "published_at": "2026-05-01T06:00:00Z"
+      },
+      {
+        "title": "React 19 の use() フックを本番で使ってみた",
+        "source": "dev.to",
+        "url": "https://example.com/react19",
+        "category_id": "frontend",
+        "reason": "React 最新機能の実践レポート",
+        "thumbnail_url": null,
+        "published_at": "2026-05-01T05:00:00Z"
+      },
+      {
+        "title": "エンジニアリングマネージャーが OKR 設計で陥りやすい罠",
+        "source": "note",
+        "url": "https://example.com/okr",
+        "category_id": "management",
+        "reason": "EM 向け実践的マネジメント記事",
+        "thumbnail_url": null,
+        "published_at": "2026-04-30T22:00:00Z"
+      }
+    ],
+    "2026-04-30": [
+      {
+        "title": "PostgreSQL 17 の新機能まとめ",
+        "source": "Zenn",
+        "url": "https://example.com/pg17",
+        "category_id": "backend",
+        "reason": "DB 主要アップデート",
+        "thumbnail_url": null,
+        "published_at": "2026-04-30T08:00:00Z"
+      },
+      {
+        "title": "Cloudflare Workers で GraphQL サーバーを構築する",
+        "source": "Qiita",
+        "url": "https://example.com/cf-graphql",
+        "category_id": "backend",
+        "reason": "Edge Computing 実践",
+        "thumbnail_url": null,
+        "published_at": "2026-04-30T07:00:00Z"
+      }
+    ],
+    "2026-04-29": [
+      {
+        "title": "Next.js 16 App Router の最新パターン集",
+        "source": "Zenn",
+        "url": "https://example.com/nextjs16",
+        "category_id": "frontend",
+        "reason": "Next.js 実践ガイド",
+        "thumbnail_url": null,
+        "published_at": "2026-04-29T08:00:00Z"
+      }
+    ]
+  }
+}

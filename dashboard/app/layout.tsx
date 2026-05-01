@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
+import { Geist, Noto_Sans_JP } from "next/font/google";
 import Link from "next/link";
 import "./globals.css";
 
 const geist = Geist({ subsets: ["latin"] });
+const notoSansJP = Noto_Sans_JP({ subsets: ["latin"], weight: ["400", "500", "700"] });
 
 export const metadata: Metadata = {
   title: "Tech Article Dashboard",
@@ -21,7 +22,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="ja" className={`${geist.className} h-full`}>
+    <html lang="ja" className={`${geist.className} ${notoSansJP.className} h-full`}>
       <body className="min-h-full flex flex-col bg-gray-50 text-gray-900">
         <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-6">
           <span className="font-semibold text-sm">📰 Article Dashboard</span>

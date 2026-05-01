@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>tech-article-fetcher</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<header>
+  <h1>tech-article-fetcher</h1>
+  <p>Webエンジニア向け技術記事を毎日自動収集し、LINEにカテゴリ別配信するボット</p>
+  <div class="badges">
+    <a href="https://github.com/ht311/tech-article-fetcher/actions">
+      <img src="https://github.com/ht311/tech-article-fetcher/actions/workflows/daily-fetch.yml/badge.svg" alt="Daily Fetch" />
+    </a>
+    <a href="https://github.com/ht311/tech-article-fetcher">
+      <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License" />
+    </a>
+    <a href="https://github.com/ht311/tech-article-fetcher">
+      <img src="https://img.shields.io/badge/Python-3.12-3776ab.svg?logo=python&logoColor=white" alt="Python" />
+    </a>
+    <a href="https://github.com/ht311/tech-article-fetcher">
+      <img src="https://img.shields.io/badge/Next.js-16-black.svg?logo=next.js" alt="Next.js" />
+    </a>
+  </div>
+</header>
+
+<main>
+
+  <section>
+    <h2>特徴</h2>
+    <div class="features">
+      <div class="feature-card">
+        <div class="icon">⚡</div>
+        <h3>サーバーレス・ゼロコスト</h3>
+        <p>GitHub Actions + Cloudflare 無料枠で完全無料動作</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🤖</div>
+        <h3>AI 選定</h3>
+        <p>Gemini 2.5 Flash でカテゴリ別に並列選定、優先キーワード反映</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">📊</div>
+        <h3>フィードバック学習</h3>
+        <p>👍/👎 の評価履歴を蓄積し、選定精度を継続改善</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🎛️</div>
+        <h3>ダッシュボード</h3>
+        <p>過去記事・統計・配信設定を Web UI から閲覧・編集</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🔗</div>
+        <h3>多ソース収集</h3>
+        <p>RSS 13 フィード・Qiita・dev.to・HN・Reddit・SpeakerDeck</p>
+      </div>
+      <div class="feature-card">
+        <div class="icon">🔒</div>
+        <h3>Basic Auth 保護</h3>
+        <p>ダッシュボードは DASHBOARD_SECRET でパスワード保護</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>ダッシュボード スクリーンショット</h2>
+    <div class="screenshot-grid">
+      <div class="screenshot-card">
+        <img src="screenshots/home.png" alt="ホーム画面" loading="lazy" />
+        <div class="caption">ホーム — サマリーカード + 今日の配信</div>
+      </div>
+      <div class="screenshot-card">
+        <img src="screenshots/articles.png" alt="記事一覧" loading="lazy" />
+        <div class="caption">記事一覧 — 日別アーカイブ</div>
+      </div>
+      <div class="screenshot-card">
+        <img src="screenshots/stats.png" alt="統計" loading="lazy" />
+        <div class="caption">統計 — フィードバック分析・週次トレンド</div>
+      </div>
+      <div class="screenshot-card">
+        <img src="screenshots/settings.png" alt="設定" loading="lazy" />
+        <div class="caption">設定 — カテゴリ・ソース・パラメータ管理</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>アーキテクチャ</h2>
+    <div class="architecture-img">
+      <img src="architecture.svg" alt="アーキテクチャ図" onerror="this.style.display='none';document.getElementById('arch-fallback').style.display='block'" />
+      <p id="arch-fallback" class="fallback" style="display:none">
+        SVG を生成するには CI を実行してください。
+        <a href="architecture.drawio">architecture.drawio</a> をダウンロードして draw.io で開くこともできます。
+      </p>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <p>
+    <a href="https://github.com/ht311/tech-article-fetcher">GitHub</a> ·
+    MIT License · Built with GitHub Actions + Cloudflare + Gemini
+  </p>
+</footer>
+
+</body>
+</html>

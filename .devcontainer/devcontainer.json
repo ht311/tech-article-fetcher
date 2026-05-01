@@ -16,7 +16,9 @@
         "ms-python.ruff",
         "ms-python.mypy-type-checker",
         "tamasfe.even-better-toml",
-        "hashicorp.terraform"
+        "hashicorp.terraform",
+        "hediet.vscode-drawio",
+        "ritwickdey.liveserver"
       ],
       "settings": {
         "terminal.integrated.defaultProfile.linux": "bash",

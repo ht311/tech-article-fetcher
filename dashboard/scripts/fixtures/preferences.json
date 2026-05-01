@@ -1,0 +1,9 @@
+{
+  "history": [
+    { "action": "good", "source": "Zenn", "timestamp": "2026-05-01T08:05:00Z" },
+    { "action": "good", "source": "Qiita", "timestamp": "2026-05-01T08:06:00Z" },
+    { "action": "bad", "source": "Reddit", "timestamp": "2026-05-01T08:07:00Z" },
+    { "action": "good", "source": "AWS Blog", "timestamp": "2026-04-30T08:05:00Z" },
+    { "action": "good", "source": "Zenn", "timestamp": "2026-04-30T08:06:00Z" }
+  ]
+}
