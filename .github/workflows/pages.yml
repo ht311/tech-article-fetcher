@@ -24,12 +24,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Export architecture SVG
-        uses: jgraph/drawio-export-action@v1
-        with:
-          input: docs/architecture.drawio
-          output: docs
-          format: svg
-          transparent: false
+        run: |
+          wget -q "https://github.com/jgraph/drawio-desktop/releases/download/v24.7.8/drawio-amd64-24.7.8.deb" -O /tmp/drawio.deb
+          sudo dpkg -i /tmp/drawio.deb || sudo apt-get install -f -y -q
+          xvfb-run -a drawio --export --format svg --output docs/architecture.svg docs/architecture.drawio
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
