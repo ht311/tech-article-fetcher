@@ -13,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Assign PR author
+        if: ${{ !endsWith(github.event.pull_request.user.login, '[bot]') }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
