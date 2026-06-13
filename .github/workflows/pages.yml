@@ -30,7 +30,7 @@ jobs:
           xvfb-run -a drawio --export --format svg --output docs/architecture.svg docs/architecture.drawio
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: docs
 
