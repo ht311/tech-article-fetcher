@@ -5,8 +5,18 @@
 TDD で開発する（探索 → Red → Green → Refactoring）。
 KPI やカバレッジ目標が与えられたら、達成するまで試行する。
 不明瞭な指示は質問して明確にする。
-作業が完了したらコミットをする。pushはしない。
+作業が完了したらコミット・push・PR起票まで行う。
 main は保護ブランチのため直接プッシュ不可。必ずブランチを切って作業し、PR 経由でマージする。
+CI が通ると自動でマージされる。
+
+# ブランチ運用
+
+```bash
+git switch -c <branch-name>                  # ブランチを作成して切り替え
+# 変更・コミット
+git push -u origin <branch-name>             # リモートにプッシュ
+gh pr create --title "<title>" --body "<body>"  # PR起票（自動マージ有効）
+```
 
 # コード設計
 
