@@ -47,13 +47,13 @@ function KeywordList({
           placeholder="キーワードを入力して Enter"
           className="flex-1 border border-gray-300 rounded px-2 py-1 text-sm"
         />
-        <button onClick={add} className="px-3 py-1 bg-gray-100 rounded text-sm hover:bg-gray-200">追加</button>
+        <button type="button" onClick={add} className="px-3 py-1 bg-gray-100 rounded text-sm hover:bg-gray-200">追加</button>
       </div>
       <div className="flex flex-wrap gap-2">
         {keywords.map((kw) => (
           <span key={kw} className="flex items-center gap-1 bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full">
             {kw}
-            <button onClick={() => onChange(keywords.filter((k) => k !== kw))} className="hover:text-blue-900">×</button>
+            <button type="button" onClick={() => onChange(keywords.filter((k) => k !== kw))} className="hover:text-blue-900">×</button>
           </span>
         ))}
       </div>
@@ -166,6 +166,7 @@ export default function SettingsPage() {
               </span>
             )}
             <button
+              type="button"
               onClick={save}
               disabled={saving}
               className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50"
@@ -179,6 +180,7 @@ export default function SettingsPage() {
         <div className="flex border-b border-gray-200 gap-0">
           {TABS.map(({ id, label }) => (
             <button
+              type="button"
               key={id}
               onClick={() => setTab(id)}
               className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
@@ -210,6 +212,7 @@ export default function SettingsPage() {
                     </p>
                     {seedError && <HelpText>{seedError}</HelpText>}
                     <button
+                      type="button"
                       onClick={handleInitCategories}
                       className="px-3 py-1.5 bg-blue-50 text-blue-700 text-sm rounded hover:bg-blue-100"
                     >
@@ -239,6 +242,7 @@ export default function SettingsPage() {
                     </p>
                     {seedError && <HelpText>{seedError}</HelpText>}
                     <button
+                      type="button"
                       onClick={handleInitSources}
                       className="px-3 py-1.5 bg-blue-50 text-blue-700 text-sm rounded hover:bg-blue-100"
                     >

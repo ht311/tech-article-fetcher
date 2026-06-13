@@ -13,25 +13,31 @@ GitHub Actions をスケジューラーとして使うことで **サーバー�
 <summary>テキスト版アーキテクチャ</summary>
 
 ```
-GitHub Actions (cron: 毎日 JST 8:00)
+GitHub Actions (cron: 毎日 JST 8:15)
   ↓
 Python スクリプト (src/cli/main.py)
   ├── 記事収集（並列）
-  │   ├── RSS: 13 フィード（日本語・企業・海外公式ブログ）
+  │   ├── RSS: 通常フィード（日本語・企業・海外公式ブログ、24h ウィンドウ）
+  │   ├── RSS: 重要ソース（Inside.java / InfoQ Java、7日ウィンドウ）★
   │   ├── Qiita API（タグ別 8 並列 + 人気記事 1 件）
-  │   ├── dev.to API（週間トップ）
-  │   ├── Hacker News Firebase API（スコア ≥ 100）
-  │   ├── Reddit JSON API（7 サブレディット、スコア ≥ 500）
-  │   └── SpeakerDeck Atom（5 カテゴリ、日本語スライドのみ）
-  ├── 重複排除（URL ベース）
-  ├── Cloudflare KV からユーザー嗜好・配信設定を並列読み込み
+  │   ├── SpeakerDeck Atom（5 カテゴリ、日本語 or PREFERRED_TOPICS 一致）
+  │   └── カンファレンス検索（KV の conferences リストで SpeakerDeck / Docswell を検索）★
+  ├── 重複排除（URL ベース）→ 送信済み URL（直近 7 日）を除外★
+  ├── Cloudflare KV からユーザー嗜好・配信設定・カンファレンスリストを並列読み込み
   ├── キーワードマッチングで 5 カテゴリに分類
   │   （backend / frontend / aws / management / others）
   ├── 配信設定（UserSettings）に基づきフィルタ
   │   （カテゴリ ON/OFF・ソース ON/OFF・除外キーワード）
   ├── Gemini API (gemini-2.5-flash) でカテゴリ別に並列選定（件数・優先キーワード反映）
+  ├── 重要記事のピン留め（Gemini が落とした重要ソース記事をカテゴリ先頭へ強制挿入）★
   ├── LINE Messaging API（Flex Message）でカテゴリ別に送信（最大 5 メッセージ）
   └── 送信記事リストを Cloudflare KV に書き込み（last_articles + 日別履歴）
+
+GitHub Actions (cron: 毎週 JST 月曜 9:00)★
+  ↓
+カンファレンス発見ジョブ (src/cli/update_conferences.py)
+  ├── Gemini の Google 検索グラウンディングで直近〜今後3ヶ月の主要技術カンファレンスを発見
+  └── KV の conferences リストへ append-only で追記（重複は last_seen_at 更新のみ）
 
 Cloudflare Worker（常時稼働・無料）
   ├── LINE Webhook を受信・HMAC-SHA256 署名検証
@@ -63,13 +69,14 @@ tech-article-fetcher/
 │   └── terraform/       # Terraform でインフラ定義
 ├── src/                 # Python バックエンド
 │   ├── cli/             # CLIエントリポイント
-│   │   └── main.py      # メインスクリプト
+│   │   ├── main.py      # メインスクリプト（日次）
+│   │   └── update_conferences.py  # カンファレンス発見ジョブ（週次）
 │   ├── core/            # コアロジック・共有モデル
 │   │   ├── config.py    # 設定（RSS・カテゴリ定義）
 │   │   ├── models.py    # Pydantic データモデル
 │   │   └── runtime_config.py  # ランタイム設定
 │   └── services/        # ビジネスロジック・外部連携
-│       ├── fetchers/    # 記事取得（RSS, Qiita, SpeakerDeck）
+│       ├── fetchers/    # 記事取得（RSS, Qiita, SpeakerDeck, Conference）
 │       ├── selector/    # カテゴリ分類・記事選定（Gemini）
 │       ├── notifier/    # LINE 通知
 │       └── storage/     # Cloudflare KV 連携
@@ -204,7 +211,10 @@ mypy src/
 | 海外公式ブログ | GitHub Blog | `https://github.blog/feed/` |
 | 海外公式ブログ | AWS Blog | `https://aws.amazon.com/blogs/aws/feed/` |
 | 海外公式ブログ | Cloudflare Blog | `https://blog.cloudflare.com/rss/` |
-| 海外公式ブログ | Vercel Blog | `https://vercel.com/blog/rss.xml` |
+| Java 専門（重要）★ | Inside.java | `https://inside.java/feed.xml` |
+| Java 専門（重要）★ | InfoQ Java | `https://feed.infoq.com/java/` |
+
+★ 重要ソースは取得ウィンドウを 7 日（168h）に拡張し、Gemini が選ばなかった場合もカテゴリ先頭にピン留めして確実に配信する。
 
 サムネイル画像を `media:thumbnail` / `media:content` / `enclosures` から自動抽出する。
 
@@ -216,10 +226,13 @@ mypy src/
 | dev.to | REST API | 過去 7 日間のトップ 20 件 |
 | Hacker News | Firebase REST API | トップ 30 件中、スコア ≥ 100 かつ URL あり |
 | Reddit | JSON API | 7 サブレディット hot posts、スコア ≥ 500、セルフポストを除外 |
-| SpeakerDeck | Atom | 5 カテゴリ（programming / science / business / education / design）、CJK 文字を含む日本語スライドのみ |
+| SpeakerDeck | Atom | 5 カテゴリ（programming / science / business / education / design）、CJK 文字または PREFERRED_TOPICS 一致のスライド |
+| カンファレンス（SpeakerDeck）★ | HTML 検索 | KV `conferences` リストの名前で検索、7日ウィンドウ、`is_important=True` |
+| カンファレンス（Docswell）★ | HTML 検索 | 同上 |
 
-Qiita タグ: `java`, `spring-boot`, `postgresql`, `typescript`, `react`, `nextjs`, `aws`, `agile`  
-Reddit サブレディット: `java`, `SpringBoot`, `typescript`, `reactjs`, `nextjs`, `aws`, `agile`, `ExperiencedDevs`
+Qiita タグ: `java`, `spring-boot`, `postgresql`, `typescript`, `react`, `nextjs`, `aws`, `agile`
+
+★ カンファレンスリストは週次ジョブ（`update_conferences.py`）が Gemini グラウンディングで自動発見・追記する。
 
 ---
 
@@ -230,9 +243,10 @@ class Article(BaseModel):
     title: str
     url: HttpUrl
     summary: str = ""
-    source: str           # 例: "Zenn", "GitHub Blog", "Reddit r/java"
+    source: str           # 例: "Zenn", "GitHub Blog", "SpeakerDeck:JJUG CCC"
     published_at: datetime | None = None
     thumbnail_url: str | None = None
+    is_important: bool = False  # 重要ソース由来（ピン留め・延長ウィンドウ対象）
 
 class SelectedArticle(BaseModel):
     article: Article
@@ -246,12 +260,20 @@ class ArticleFeedback(BaseModel):
     url: str
     timestamp: datetime
 
+class Conference(BaseModel):
+    name: str             # 例: "JJUG CCC", "JAWS DAYS", "TSKaigi"
+    added_at: datetime
+    last_seen_at: datetime | None = None
+
+class ConferenceList(BaseModel):
+    conferences: list[Conference] = []  # KV `conferences` に永続化
+
 class UserSettings(BaseModel):
-    categories: dict[str, bool]      # カテゴリ ON/OFF（デフォルト全て True）
-    sources_enabled: dict[str, bool] # ソース ON/OFF（空 dict は全 ON）
     max_per_category: int = 5        # カテゴリあたり最大選定数（1〜5）
     exclude_keywords: list[str] = [] # タイトル・サマリーにマッチしたら除外
     include_keywords: list[str] = [] # Gemini プロンプトに追加して優先
+    sources: list[SourceDef] | None = None
+    category_defs: list[CategoryDef] | None = None
 
 class UserPreferences(BaseModel):
     history: list[ArticleFeedback] = []
@@ -401,7 +423,18 @@ Gemini に渡す前に各カテゴリを `published_at` 降順ソートし、最
 ```json
 {"dates": ["2026-04-19", "2026-04-18", ...]}
 ```
-配信日リスト（降順）。`articles:*` キーのインデックスとして使用。
+配信日リスト（降順）。`articles:*` キーのインデックスとして使用。再送防止の送信済みURL取得にも使用。
+
+**キー: `conferences`**
+```json
+{
+  "conferences": [
+    {"name": "JJUG CCC", "added_at": "2026-06-01T00:00:00Z", "last_seen_at": "2026-06-13T00:00:00Z"},
+    {"name": "JAWS DAYS", "added_at": "2026-06-01T00:00:00Z", "last_seen_at": "2026-06-13T00:00:00Z"}
+  ]
+}
+```
+週次ジョブが Gemini で発見した技術カンファレンス名リスト。append-only で育っていく。日次フェッチがこのリストで SpeakerDeck / Docswell を検索する。
 
 **キー: `settings`**
 ```json
@@ -484,9 +517,20 @@ Gemini に渡す前に各カテゴリを `published_at` 降順ソートし、最
 ```yaml
 on:
   schedule:
-    - cron: '0 23 * * *'  # JST 8:00 毎朝
-  workflow_dispatch:        # 手動実行も可
+    - cron: '15 23 * * *'  # JST 8:15 毎朝（混雑回避）
+  workflow_dispatch:         # 手動実行も可
 ```
+
+### `weekly-conferences.yml` — カンファレンス名自動発見
+
+```yaml
+on:
+  schedule:
+    - cron: '0 0 * * 1'  # JST 月曜 9:00 毎週
+  workflow_dispatch:       # 手動実行も可
+```
+
+Gemini の Google 検索グラウンディングで直近〜今後3ヶ月の日本の主要技術カンファレンスを発見し、KV の `conferences` リストへ追記する。リストが増えるほど日次フェッチで拾えるカンファスライドが増える。
 
 ### `dashboard-deploy.yml` — ダッシュボードデプロイ
 

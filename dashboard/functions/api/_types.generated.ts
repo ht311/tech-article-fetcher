@@ -18,16 +18,31 @@ export interface CategoryDef {
   order?: number;
 }
 /**
- * RSS / Qiita / SpeakerDeck ソースの定義。
+ * カンファレンス名とメタデータ。KV `conferences` に永続化。
+ */
+export interface Conference {
+  name: string;
+  added_at: string;
+  last_seen_at?: string | null;
+}
+/**
+ * 週次ジョブが育てるカンファレンス名リスト。
+ */
+export interface ConferenceList {
+  conferences?: Conference[];
+}
+/**
+ * RSS / Qiita / SpeakerDeck / Docswell ソースの定義。
  */
 export interface SourceDef {
   name: string;
-  type: "rss" | "qiita" | "speakerdeck";
+  type: "rss" | "qiita" | "speakerdeck" | "docswell";
   url?: string | null;
   params?: {
     [k: string]: unknown;
   } | null;
   enabled?: boolean;
+  important?: boolean;
 }
 /**
  * 配信設定。Cloudflare KV の `settings` キーに永続化される。

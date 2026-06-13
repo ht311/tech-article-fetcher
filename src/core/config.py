@@ -2,7 +2,7 @@ from typing import Any
 
 # RSSフィードのソース一覧。name はメッセージ表示にも使われる。
 # ソースを追加・削除したい場合はここだけ編集すればよい。
-RSS_SOURCES: list[dict[str, str]] = [
+RSS_SOURCES: list[dict[str, Any]] = [
     # 日本語技術記事
     {"name": "Zenn", "url": "https://zenn.dev/feed"},
     {"name": "Qiita人気記事", "url": "https://qiita.com/popular-items/feed"},
@@ -18,6 +18,9 @@ RSS_SOURCES: list[dict[str, str]] = [
     {"name": "GitHub Blog", "url": "https://github.blog/feed/"},
     {"name": "AWS Blog", "url": "https://aws.amazon.com/blogs/aws/feed/"},
     {"name": "Cloudflare Blog", "url": "https://blog.cloudflare.com/rss/"},
+    # Java 専門（重要ソース: 延長ウィンドウ・ピン留め対象）
+    {"name": "Inside.java", "url": "https://inside.java/feed.xml", "important": True},
+    {"name": "InfoQ Java", "url": "https://feed.infoq.com/java/", "important": True},
 ]
 
 # 優先検索トピック（Gemini 選定基準・Qiita タグ検索・Reddit サブレディットに反映される）
@@ -48,13 +51,25 @@ GEMINI_FALLBACK_MODEL = "gemini-2.5-flash"
 
 # 直近何時間の記事を対象にするか
 ARTICLE_FETCH_HOURS = 24
+# 重要ソース（Java専門・カンファスライド）の取得ウィンドウ
+EXTENDED_FETCH_HOURS = 168  # 7日
+# カンファスライドの収集ウィンドウ
+CONFERENCE_SEARCH_HOURS = 168
+# カテゴリ毎にピン確保する重要記事の上限
+MAX_PINNED_PER_CATEGORY = 2
+# 再送防止のため遡る送信済み履歴の日数
+SENT_HISTORY_DEDUP_DAYS = 7
 
 # 大カテゴリ定義（id 順でプロンプト・LINE 送信順序が決まる）
 CATEGORIES: list[dict[str, Any]] = [
     {
         "id": "backend",
         "name": "バックエンド",
-        "keywords": ["java", "spring", "springboot", "spring boot", "postgres", "postgresql"],
+        "keywords": [
+            "java", "jdk", "openjdk",
+            "spring", "springboot", "spring boot",
+            "postgres", "postgresql",
+        ],
     },
     {
         "id": "frontend",
@@ -127,7 +142,10 @@ def default_sources() -> list[dict[str, object]]:
 
     sources: list[SourceDef] = []
     for i, s in enumerate(RSS_SOURCES):
-        sources.append(SourceDef(name=s["name"], type="rss", url=s["url"], enabled=True))
+        sources.append(SourceDef(
+            name=s["name"], type="rss", url=s["url"], enabled=True,
+            important=bool(s.get("important", False)),
+        ))
     for tag in QIITA_TAGS:
         sources.append(SourceDef(
             name=f"Qiita:{tag}", type="qiita", params={"tag": tag}, enabled=True

@@ -79,9 +79,9 @@ export default function HomePage() {
           <p className="text-sm text-gray-400">本日の配信はまだありません</p>
         ) : (
           <div className="space-y-2">
-            {today?.articles.map((a, i) => (
+            {today?.articles.map((a) => (
               <a
-                key={i}
+                key={a.url}
                 href={a.url}
                 target="_blank"
                 rel="noopener noreferrer"

@@ -33,13 +33,13 @@ function KeywordChips({
           placeholder="例: React, TypeScript"
           className="flex-1 border border-gray-200 rounded px-2 py-0.5 text-xs"
         />
-        <button onClick={add} className="px-2 py-0.5 bg-gray-100 rounded text-xs hover:bg-gray-200">+</button>
+        <button type="button" onClick={add} className="px-2 py-0.5 bg-gray-100 rounded text-xs hover:bg-gray-200">+</button>
       </div>
       <div className="flex flex-wrap gap-1">
         {keywords.map((kw) => (
           <span key={kw} className="flex items-center gap-0.5 bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full">
             {kw}
-            <button onClick={() => onChange(keywords.filter((k) => k !== kw))} className="hover:text-blue-900">×</button>
+            <button type="button" onClick={() => onChange(keywords.filter((k) => k !== kw))} className="hover:text-blue-900">×</button>
           </span>
         ))}
       </div>
@@ -100,6 +100,7 @@ export default function CategoryEditor({ categories, onChange }: CategoryEditorP
               </span>
               <div className="flex gap-1">
                 <button
+                  type="button"
                   onClick={() => move(idx, -1)}
                   disabled={idx === 0}
                   aria-label="上に移動（配信順を変更）"
@@ -107,6 +108,7 @@ export default function CategoryEditor({ categories, onChange }: CategoryEditorP
                   className="px-1.5 text-gray-400 hover:text-gray-700 disabled:opacity-30"
                 >↑</button>
                 <button
+                  type="button"
                   onClick={() => move(idx, 1)}
                   disabled={idx === sorted.length - 1}
                   aria-label="下に移動（配信順を変更）"
@@ -114,6 +116,7 @@ export default function CategoryEditor({ categories, onChange }: CategoryEditorP
                   className="px-1.5 text-gray-400 hover:text-gray-700 disabled:opacity-30"
                 >↓</button>
                 <button
+                  type="button"
                   onClick={() => setConfirmIdx(idx)}
                   aria-label={`${cat.name} を削除`}
                   className="px-1.5 text-red-400 hover:text-red-600"
@@ -123,7 +126,7 @@ export default function CategoryEditor({ categories, onChange }: CategoryEditorP
             <KeywordChips keywords={cat.keywords ?? []} onChange={(kws) => update(idx, { keywords: kws })} />
           </div>
         ))}
-        <button onClick={add} className="text-sm text-blue-600 hover:underline">+ カテゴリを追加</button>
+        <button type="button" onClick={add} className="text-sm text-blue-600 hover:underline">+ カテゴリを追加</button>
       </div>
 
       <ConfirmDialog

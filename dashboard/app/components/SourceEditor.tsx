@@ -16,6 +16,7 @@ const TYPE_DESCRIPTIONS: Record<SourceDef["type"], string> = {
   rss: "指定した URL の RSS/Atom フィードから記事を取得します",
   qiita: "指定したタグの記事を Qiita API から取得します",
   speakerdeck: "指定したカテゴリのスライドを SpeakerDeck から取得します",
+  docswell: "指定したカテゴリのスライドを Docswell から取得します",
 };
 
 function SourceRow({
@@ -27,7 +28,7 @@ function SourceRow({
   onUpdate: (patch: Partial<SourceDef>) => void;
   onRemove: () => void;
 }) {
-  const paramKey = src.type === "qiita" ? "tag" : src.type === "speakerdeck" ? "category" : null;
+  const paramKey = src.type === "qiita" ? "tag" : (src.type === "speakerdeck" || src.type === "docswell") ? "category" : null;
   const paramValue = paramKey ? String(src.params?.[paramKey] ?? "") : "";
 
   return (
@@ -63,7 +64,7 @@ function SourceRow({
           className="flex-1 border border-gray-200 rounded px-2 py-0.5 text-sm"
         />
       )}
-      <button onClick={onRemove} aria-label={`${src.name || src.type} を削除`} className="text-red-400 hover:text-red-600 shrink-0">✕</button>
+      <button type="button" onClick={onRemove} aria-label={`${src.name || src.type} を削除`} className="text-red-400 hover:text-red-600 shrink-0">✕</button>
     </div>
   );
 }
@@ -85,10 +86,11 @@ export default function SourceEditor({ sources, onChange }: SourceEditorProps) {
     if (newType === "rss") base.url = "";
     if (newType === "qiita") base.params = { tag: "" };
     if (newType === "speakerdeck") base.params = { category: "" };
+    if (newType === "docswell") base.params = { category: "" };
     onChange([...sources, base]);
   };
 
-  const groups: Array<SourceDef["type"]> = ["rss", "qiita", "speakerdeck"];
+  const groups: Array<SourceDef["type"]> = ["rss", "qiita", "speakerdeck", "docswell"];
   const confirmingSrc = confirmIdx !== null ? sources[confirmIdx] : null;
 
   return (
@@ -130,7 +132,7 @@ export default function SourceEditor({ sources, onChange }: SourceEditorProps) {
             ))}
           </select>
           <div>
-            <button onClick={add} className="px-3 py-1 text-sm bg-blue-50 text-blue-700 rounded hover:bg-blue-100">
+            <button type="button" onClick={add} className="px-3 py-1 text-sm bg-blue-50 text-blue-700 rounded hover:bg-blue-100">
               + ソースを追加
             </button>
             <HelpText>{TYPE_DESCRIPTIONS[newType]}</HelpText>

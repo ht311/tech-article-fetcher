@@ -14,6 +14,7 @@ class Article(BaseModel):
     source: str  # フィード名（例: "Zenn", "GitHub Blog"）
     published_at: datetime | None = None  # 取得できない場合は None
     thumbnail_url: str | None = None  # OGP等のサムネイル画像URL
+    is_important: bool = False  # 重要ソース由来（ピン留め＆延長ウィンドウ対象）
 
 
 class SelectedArticle(BaseModel):
@@ -35,13 +36,14 @@ class ArticleFeedback(BaseModel):
 
 
 class SourceDef(BaseModel):
-    """RSS / Qiita / SpeakerDeck ソースの定義。"""
+    """RSS / Qiita / SpeakerDeck / Docswell ソースの定義。"""
 
     name: str
-    type: Literal["rss", "qiita", "speakerdeck"]
+    type: Literal["rss", "qiita", "speakerdeck", "docswell"]
     url: str | None = None
     params: dict[str, Any] | None = None
     enabled: bool = True
+    important: bool = False  # True なら延長ウィンドウで取得・ピン留め対象
 
 
 class CategoryDef(BaseModel):
@@ -64,6 +66,20 @@ class UserSettings(BaseModel):
     category_defs: list[CategoryDef] | None = None
     article_fetch_hours: int | None = None
     gemini_max_input_per_category: int | None = None
+
+
+class Conference(BaseModel):
+    """カンファレンス名とメタデータ。KV `conferences` に永続化。"""
+
+    name: str
+    added_at: datetime
+    last_seen_at: datetime | None = None
+
+
+class ConferenceList(BaseModel):
+    """週次ジョブが育てるカンファレンス名リスト。"""
+
+    conferences: list[Conference] = []
 
 
 class UserPreferences(BaseModel):

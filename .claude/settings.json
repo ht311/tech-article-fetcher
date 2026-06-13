@@ -48,12 +48,32 @@
       "Bash(parted:*)",
       "Bash(shred:*)",
       "Bash(wipefs:*)",
-      "Bash(sudo rm -rf:*)"
+      "Bash(sudo rm -rf:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push --force-with-lease:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git clean -f:*)",
+      "Bash(git clean -fd:*)",
+      "Bash(git clean -fdx:*)",
+      "Bash(git checkout -- .:*)",
+      "Bash(git checkout .:*)",
+      "Bash(git branch -D:*)",
+      "Bash(git filter-branch:*)",
+      "Bash(git commit --amend:*)",
+      "Bash(gh repo delete:*)",
+      "Bash(gh release delete:*)",
+      "Bash(gh secret delete:*)",
+      "Bash(gh auth logout:*)"
     ],
     "defaultMode": "bypassPermissions"
   },
   "model": "opusplan",
   "skipDangerousModePermissionPrompt": true,
+  "statusLine": {
+    "type": "command",
+    "command": "sh .claude/statusline-command.sh"
+  },
   "enabledPlugins": {
     "example-skills@anthropic-agent-skills": true
   }

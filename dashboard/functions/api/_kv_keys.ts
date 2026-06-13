@@ -6,5 +6,6 @@ export const KV_LAST_ARTICLES = "last_articles";
 export const KV_SETTINGS = "settings";
 export const KV_DEFAULT_SETTINGS = "default_settings";
 export const KV_ARTICLE_INDEX = "article_index";
+export const KV_CONFERENCES = "conferences";
 
 export const articleHistoryKey = (date: string): string => `articles:${date}`;

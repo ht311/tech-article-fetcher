@@ -3,13 +3,16 @@ tech-article-fetcher のエントリポイント。
 
 処理フロー:
   1. KV から UserSettings を読み込み RuntimeConfig を構築
-  2. RSS / Qiita / SpeakerDeck を並列フェッチ（RuntimeConfig のソース定義を使用）
-  3. URL ベースで重複排除
-  4. カテゴリごとにバケット分け（RuntimeConfig のカテゴリ定義を使用）
-  5. KV からユーザー嗜好を読み込み
-  6. カテゴリごとに Gemini API で選定（並列呼び出し）
-  7. カテゴリ別に LINE Push Message を逐次送信
-  8. 送信した記事リストを Cloudflare KV に書き込み
+  2. RSS / Qiita / SpeakerDeck を並列フェッチ（通常24h）
+     重要ソース（important=True）は延長ウィンドウ（EXTENDED_FETCH_HOURS）で取得
+  3. KV からカンファレンスリストを読み込み、スライドを並列フェッチ
+  4. URL ベースで重複排除 → 送信済みURL（直近N日）を除外
+  5. カテゴリごとにバケット分け
+  6. KV からユーザー嗜好を読み込み
+  7. カテゴリごとに Gemini API で選定（並列呼び出し）
+  8. 重要記事のピン留め（Gemini が落とした重要記事をカテゴリ先頭へ強制挿入）
+  9. カテゴリ別に LINE Push Message を逐次送信
+  10. 送信記事リストを Cloudflare KV に書き込み
 """
 
 import asyncio
@@ -19,8 +22,15 @@ from datetime import UTC, datetime
 
 from dotenv import load_dotenv
 
-from src.core.models import Article
+from src.core.config import (
+    CONFERENCE_SEARCH_HOURS,
+    EXTENDED_FETCH_HOURS,
+    MAX_PINNED_PER_CATEGORY,
+    SENT_HISTORY_DEDUP_DAYS,
+)
+from src.core.models import Article, CategoryDef, SelectedArticle
 from src.core.runtime_config import build_default_user_settings, build_runtime_config
+from src.services.fetchers.conference_fetcher import fetch_conference_slides
 from src.services.fetchers.qiita_fetcher import fetch_qiita
 from src.services.fetchers.rss_fetcher import fetch_all_rss
 from src.services.fetchers.speakerdeck_fetcher import fetch_speakerdeck
@@ -28,7 +38,9 @@ from src.services.notifier.line_notifier import send_category_messages
 from src.services.selector.categorizer import bucket_articles
 from src.services.selector.gemini_selector import deduplicate, select_articles_by_category
 from src.services.storage.preferences import (
+    get_conferences,
     get_preferences,
+    get_recent_sent_urls,
     get_settings,
     write_article_history,
     write_default_settings,
@@ -42,12 +54,37 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def _pin_important(
+    selections: dict[str, list[SelectedArticle]],
+    buckets: dict[str, list[Article]],
+    category_defs: list[CategoryDef],
+    max_pins: int,
+) -> dict[str, list[SelectedArticle]]:
+    """Gemini が選ばなかった重要記事をカテゴリ先頭へピン留めする。"""
+    for cat in category_defs:
+        selected_urls = {str(s.article.url) for s in selections.get(cat.id, [])}
+        candidates = [
+            a for a in buckets.get(cat.id, [])
+            if a.is_important and str(a.url) not in selected_urls
+        ]
+        # published_at 新しい順に最大 max_pins 件ピン
+        _epoch = datetime.min.replace(tzinfo=UTC)
+        candidates.sort(key=lambda a: a.published_at or _epoch, reverse=True)
+        pins = [
+            SelectedArticle(article=a, reason=f"重要: {a.source}", category_id=cat.id)
+            for a in candidates[:max_pins]
+        ]
+        if pins:
+            logger.info("Pinned %d important articles to category %s", len(pins), cat.id)
+            selections[cat.id] = pins + selections.get(cat.id, [])
+    return selections
+
+
 async def main() -> None:
     load_dotenv()
 
     logger.info("Starting tech-article-fetcher")
 
-    # デフォルト設定を KV に seed する（config.py 変更を即反映）
     await write_default_settings(build_default_user_settings())
 
     settings = await get_settings()
@@ -59,19 +96,36 @@ async def main() -> None:
         rc.article_fetch_hours,
     )
 
-    results = await asyncio.gather(
-        fetch_all_rss(rc.sources, rc.article_fetch_hours),
-        fetch_qiita(rc.sources, rc.article_fetch_hours),
-        fetch_speakerdeck(rc.sources, rc.article_fetch_hours),
-        return_exceptions=True,
+    # 通常ソースと重要ソースを分離してフェッチ時間を変える
+    normal_sources = [s for s in rc.sources if not s.important]
+    important_sources = [s for s in rc.sources if s.important]
+
+    conferences, sent_urls = await asyncio.gather(
+        get_conferences(),
+        get_recent_sent_urls(SENT_HISTORY_DEDUP_DAYS),
+    )
+    logger.info(
+        "Conferences: %d, sent URLs for dedup: %d",
+        len(conferences.conferences),
+        len(sent_urls),
     )
 
+    fetch_tasks = [
+        fetch_all_rss(normal_sources, rc.article_fetch_hours),
+        fetch_all_rss(important_sources, EXTENDED_FETCH_HOURS),
+        fetch_qiita(rc.sources, rc.article_fetch_hours),
+        fetch_speakerdeck(rc.sources, rc.article_fetch_hours),
+        fetch_conference_slides(conferences.conferences, CONFERENCE_SEARCH_HOURS),
+    ]
+    results = await asyncio.gather(*fetch_tasks, return_exceptions=True)
+
     all_articles: list[Article] = []
-    source_names = ["RSS", "Qiita", "SpeakerDeck"]
+    source_names = ["RSS(normal)", "RSS(important)", "Qiita", "SpeakerDeck", "Conference"]
     for name, result in zip(source_names, results):
         if isinstance(result, BaseException):
             logger.warning("Source %s raised an exception: %s", name, result)
         else:
+            logger.info("Source %s: %d articles", name, len(result))
             all_articles.extend(result)
 
     logger.info("Total fetched: %d articles", len(all_articles))
@@ -79,11 +133,16 @@ async def main() -> None:
     unique_articles = deduplicate(all_articles)
     logger.info("After deduplication: %d articles", len(unique_articles))
 
+    # 送信済み記事を除外（延長ウィンドウによる再送防止）
+    if sent_urls:
+        before = len(unique_articles)
+        unique_articles = [a for a in unique_articles if str(a.url) not in sent_urls]
+        logger.info("Filtered %d already-sent articles", before - len(unique_articles))
+
     if not unique_articles:
         logger.error("No articles fetched. Exiting.")
         sys.exit(1)
 
-    # exclude_keywords フィルタ
     lower_excludes = [kw.lower() for kw in rc.exclude_keywords]
     if lower_excludes:
         unique_articles = [
@@ -109,6 +168,10 @@ async def main() -> None:
         max_per_category=rc.max_per_category,
         include_keywords=rc.include_keywords,
     )
+
+    # 重要記事のピン留め
+    selections = _pin_important(selections, buckets, rc.category_defs, MAX_PINNED_PER_CATEGORY)
+
     total = sum(len(v) for v in selections.values())
     logger.info("Selected total %d articles across %d categories", total, len(selections))
 

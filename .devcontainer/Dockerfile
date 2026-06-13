@@ -5,6 +5,7 @@ SHELL ["/bin/bash", "-c"]
 RUN apt-get update && apt-get install -y \
     git \
     curl \
+    jq \
     # Japanese / CJK fonts (prevents mojibake in Playwright screenshots)
     fonts-noto-cjk \
     # Playwright / Chromium headless dependencies

@@ -14,10 +14,11 @@ export interface ArticleHistoryEntry {
   published_at: string | null;
 }
 
-export const VALID_SOURCE_TYPES: ("rss" | "qiita" | "speakerdeck")[] = ["rss", "qiita", "speakerdeck"];
+export const VALID_SOURCE_TYPES: ("rss" | "qiita" | "speakerdeck" | "docswell")[] = ["rss", "qiita", "speakerdeck", "docswell"];
 
-export const TYPE_LABELS: Record<"rss" | "qiita" | "speakerdeck", string> = {
+export const TYPE_LABELS: Record<"rss" | "qiita" | "speakerdeck" | "docswell", string> = {
   rss: "RSS",
   qiita: "Qiita",
   speakerdeck: "SpeakerDeck",
+  docswell: "Docswell",
 };

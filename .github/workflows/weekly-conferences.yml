@@ -1,12 +1,12 @@
-name: Daily Tech Article Fetch
+name: Weekly Conference Discovery
 
 on:
   schedule:
-    - cron: "15 23 * * *" # JST 8:15 毎朝（混雑回避）
+    - cron: "0 0 * * 1" # JST 月曜 9:00
   workflow_dispatch: # 手動実行
 
 jobs:
-  fetch-and-notify:
+  discover-conferences:
     runs-on: ubuntu-latest
 
     steps:
@@ -20,13 +20,10 @@ jobs:
       - name: Install dependencies
         run: pip install -e .
 
-      - name: Run fetcher
+      - name: Discover and update conferences
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
-          LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
-          LINE_CHANNEL_SECRET: ${{ secrets.LINE_CHANNEL_SECRET }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_KV_NAMESPACE_ID: ${{ secrets.CLOUDFLARE_KV_NAMESPACE_ID }}
-        run: python -m src
+        run: python -m src.cli.update_conferences

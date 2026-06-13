@@ -13,6 +13,7 @@ from datetime import UTC, datetime, timedelta
 import feedparser
 import httpx
 
+from src.core.config import PREFERRED_TOPICS
 from src.core.models import Article, SourceDef
 
 logger = logging.getLogger(__name__)
@@ -21,10 +22,15 @@ SPEAKERDECK_CATEGORY_ATOM = "https://speakerdeck.com/c/{category}.atom"
 
 _CJK_RE = re.compile(r"[\u3000-\u9fff\uff00-\uffef]")
 _HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; tech-article-fetcher/1.0)", "Accept": "*/*"}
+_PREFERRED_LOWER = [t.lower() for t in PREFERRED_TOPICS]
 
 
-def _is_japanese(text: str) -> bool:
-    return bool(_CJK_RE.search(text))
+def _is_relevant(text: str) -> bool:
+    """Return True if text has CJK chars or matches a preferred topic."""
+    if _CJK_RE.search(text):
+        return True
+    lower = text.lower()
+    return any(kw in lower for kw in _PREFERRED_LOWER)
 
 
 def _parse_entry(entry: feedparser.FeedParserDict) -> Article | None:
@@ -73,10 +79,10 @@ async def _fetch_category(client: httpx.AsyncClient, category: str) -> list[Arti
         articles = []
         for entry in feed.entries:
             article = _parse_entry(entry)
-            if article and _is_japanese(article.title + article.summary):
+            if article and _is_relevant(article.title + article.summary):
                 articles.append(article)
         logger.info(
-            "SpeakerDeck /c/%s: %d entries, %d Japanese",
+            "SpeakerDeck /c/%s: %d entries, %d relevant",
             category, len(feed.entries), len(articles),
         )
         return articles
@@ -116,5 +122,5 @@ async def fetch_speakerdeck(sources: list[SourceDef], hours: int) -> list[Articl
             seen_urls.add(url_str)
             articles.append(article)
 
-    logger.info("Fetched %d Japanese slides from SpeakerDeck", len(articles))
+    logger.info("Fetched %d relevant slides from SpeakerDeck", len(articles))
     return articles

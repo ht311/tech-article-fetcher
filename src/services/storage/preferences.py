@@ -19,6 +19,7 @@ from src.core.constants import ARTICLE_RETENTION_DAYS, MAX_HISTORY
 from src.core.kv_keys import (
     KV_ARTICLE_HISTORY_PREFIX,
     KV_ARTICLE_INDEX,
+    KV_CONFERENCES,
     KV_DEFAULT_SETTINGS,
     KV_LAST_ARTICLES,
     KV_PREFERENCES,
@@ -27,6 +28,8 @@ from src.core.kv_keys import (
 from src.core.models import (
     ArticleFeedback,
     CategoryDef,
+    Conference,
+    ConferenceList,
     SelectedArticle,
     UserPreferences,
     UserSettings,
@@ -263,6 +266,104 @@ async def write_article_history(
                 logger.warning("Failed to delete expired article history %s: %s", old_date, exc)
 
     logger.info("Wrote article history for %s (%d articles)", date, len(flat))
+
+
+async def get_conferences() -> ConferenceList:
+    """KV からカンファレンスリストを取得する。未設定・失敗時は空リストを返す。"""
+    base_url = _kv_base_url()
+    if not base_url:
+        return ConferenceList()
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{base_url}/{KV_CONFERENCES}", headers=_auth_headers(), timeout=10,
+            )
+        if response.status_code == 404:
+            return ConferenceList()
+        response.raise_for_status()
+        return ConferenceList.model_validate(response.json())
+    except Exception as exc:
+        logger.warning("Failed to read conferences from KV: %s", exc)
+        return ConferenceList()
+
+
+async def write_conferences(conf_list: ConferenceList) -> None:
+    """カンファレンスリストを KV に保存する。"""
+    base_url = _kv_base_url()
+    if not base_url:
+        logger.debug("Cloudflare KV not configured. Skipping conferences write.")
+        return
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.put(
+                f"{base_url}/{KV_CONFERENCES}",
+                headers={**_auth_headers(), "Content-Type": "application/json"},
+                content=conf_list.model_dump_json(),
+                timeout=10,
+            )
+        response.raise_for_status()
+        logger.info("Wrote conferences to KV (%d entries)", len(conf_list.conferences))
+    except Exception as exc:
+        logger.warning("Failed to write conferences to KV: %s", exc)
+
+
+def merge_conferences(existing: ConferenceList, discovered: list[str]) -> ConferenceList:
+    """発見したカンファレンス名を既存リストへ append-only でマージする。
+    同名（大文字小文字を無視）は追加せず last_seen_at だけ更新する。
+    """
+    now = datetime.now(UTC)
+    name_map = {c.name.lower(): c for c in existing.conferences}
+    for name in discovered:
+        key = name.strip().lower()
+        if not key:
+            continue
+        if key in name_map:
+            name_map[key].last_seen_at = now
+        else:
+            name_map[key] = Conference(name=name.strip(), added_at=now, last_seen_at=now)
+    return ConferenceList(conferences=list(name_map.values()))
+
+
+async def get_recent_sent_urls(days: int) -> set[str]:
+    """直近 days 日間に送信した記事の URL 集合を返す。KV 未設定時は空集合。"""
+    base_url = _kv_base_url()
+    if not base_url:
+        return set()
+    try:
+        async with httpx.AsyncClient() as client:
+            idx_resp = await client.get(
+                f"{base_url}/{KV_ARTICLE_INDEX}", headers=_auth_headers(), timeout=10,
+            )
+            if idx_resp.status_code == 404:
+                return set()
+            idx_resp.raise_for_status()
+            index = idx_resp.json()
+
+        cutoff = (datetime.now(UTC) - timedelta(days=days)).strftime("%Y-%m-%d")
+        recent_dates = [d for d in index.get("dates", []) if d >= cutoff]
+
+        urls: set[str] = set()
+        async with httpx.AsyncClient() as client:
+            for date in recent_dates:
+                try:
+                    resp = await client.get(
+                        f"{base_url}/{KV_ARTICLE_HISTORY_PREFIX}{date}",
+                        headers=_auth_headers(),
+                        timeout=10,
+                    )
+                    if resp.status_code == 404:
+                        continue
+                    resp.raise_for_status()
+                    for entry in resp.json():
+                        if u := entry.get("url"):
+                            urls.add(u)
+                except Exception as exc:
+                    logger.warning("Failed to read article history for %s: %s", date, exc)
+        logger.info("Loaded %d sent URLs from last %d days", len(urls), days)
+        return urls
+    except Exception as exc:
+        logger.warning("Failed to get recent sent URLs: %s", exc)
+        return set()
 
 
 async def append_feedback(action: str, title: str, source: str, url: str) -> None:

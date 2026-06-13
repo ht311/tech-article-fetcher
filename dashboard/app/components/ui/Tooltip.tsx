@@ -41,6 +41,7 @@ export function InfoTooltip({ text }: { text: string }) {
         className="inline-flex items-center justify-center w-4 h-4 rounded-full text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
         aria-label="詳細情報"
       >
+        {/* biome-ignore lint/a11y/noSvgWithoutTitle: aria-hidden; parent button has aria-label */}
         <svg
           viewBox="0 0 16 16"
           fill="currentColor"

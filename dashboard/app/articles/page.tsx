@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useCategories, categoryLabel } from "../lib/useCategories";
 
 interface Article {
@@ -41,7 +41,7 @@ export default function ArticlesPage() {
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
-  const fetchArticles = () => {
+  const fetchArticles = useCallback(() => {
     setLoading(true);
     fetch(`/api/articles?from=${from}&to=${to}`)
       .then((r) => r.json() as Promise<ArticlesData>)
@@ -50,11 +50,11 @@ export default function ArticlesPage() {
         setSelectedDate(d.dates[0] ?? null);
         setLoading(false);
       });
-  };
+  }, [from, to]);
 
   useEffect(() => {
     fetchArticles();
-  }, []);
+  }, [fetchArticles]);
 
   const currentArticles = selectedDate ? (data?.articles[selectedDate] ?? []) : [];
 
@@ -83,6 +83,7 @@ export default function ArticlesPage() {
           />
         </label>
         <button
+          type="button"
           onClick={fetchArticles}
           className="px-4 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
         >
@@ -101,6 +102,7 @@ export default function ArticlesPage() {
             )}
             {data.dates.map((d) => (
               <button
+                type="button"
                 key={d}
                 onClick={() => setSelectedDate(d)}
                 className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
@@ -122,15 +124,16 @@ export default function ArticlesPage() {
             {currentArticles.length === 0 ? (
               <p className="text-sm text-gray-400">記事なし</p>
             ) : (
-              currentArticles.map((a, i) => (
+              currentArticles.map((a) => (
                 <a
-                  key={i}
+                  key={a.url}
                   href={a.url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex gap-3 bg-white border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors"
                 >
                   {a.thumbnail_url && (
+                    // biome-ignore lint/performance/noImgElement: thumbnail URLs are external and domain-unpredictable
                     <img
                       src={a.thumbnail_url}
                       alt=""
