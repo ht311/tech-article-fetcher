@@ -1,0 +1,59 @@
+fetcher:
+  - changed-files:
+      - any-glob-to-any-file: 'src/services/fetchers/**'
+
+notifier:
+  - changed-files:
+      - any-glob-to-any-file: 'src/services/notifier/**'
+
+selector:
+  - changed-files:
+      - any-glob-to-any-file: 'src/services/selector/**'
+
+storage:
+  - changed-files:
+      - any-glob-to-any-file: 'src/services/storage/**'
+
+core:
+  - changed-files:
+      - any-glob-to-any-file: 'src/core/**'
+
+cli:
+  - changed-files:
+      - any-glob-to-any-file: 'src/cli/**'
+
+test:
+  - changed-files:
+      - any-glob-to-any-file: 'tests/**'
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file: '.github/**'
+
+dashboard:
+  - changed-files:
+      - any-glob-to-any-file: 'dashboard/**'
+
+infra:
+  - changed-files:
+      - any-glob-to-any-file: 'infrastructure/**'
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'README.md'
+          - 'CLAUDE.md'
+          - 'docs/**'
+          - 'memo.md'
+
+deps:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'pyproject.toml'
+          - 'requirements.txt'
+          - 'dashboard/package.json'
+          - 'dashboard/pnpm-lock.yaml'
+
+chore:
+  - changed-files:
+      - any-glob-to-any-file: 'scripts/**'

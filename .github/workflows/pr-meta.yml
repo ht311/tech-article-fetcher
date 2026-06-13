@@ -1,0 +1,48 @@
+name: PR Meta
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  assign:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assign PR author
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: gh pr edit "$PR_URL" --add-assignee "$AUTHOR"
+
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create labels if not exist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh label create "fetcher"   --color "0075ca" --description "記事収集"     --repo "$REPO" --force
+          gh label create "notifier"  --color "e4e669" --description "通知"         --repo "$REPO" --force
+          gh label create "selector"  --color "d93f0b" --description "AI選定"       --repo "$REPO" --force
+          gh label create "storage"   --color "0052cc" --description "ストレージ"   --repo "$REPO" --force
+          gh label create "core"      --color "5319e7" --description "コア設定"     --repo "$REPO" --force
+          gh label create "cli"       --color "006b75" --description "CLI"          --repo "$REPO" --force
+          gh label create "test"      --color "0e8a16" --description "テスト"       --repo "$REPO" --force
+          gh label create "ci"        --color "1d76db" --description "CI/CD"        --repo "$REPO" --force
+          gh label create "dashboard" --color "b60205" --description "ダッシュボード" --repo "$REPO" --force
+          gh label create "infra"     --color "f9d0c4" --description "インフラ"     --repo "$REPO" --force
+          gh label create "docs"      --color "c5def5" --description "ドキュメント" --repo "$REPO" --force
+          gh label create "deps"      --color "bfd4f2" --description "依存関係"     --repo "$REPO" --force
+          gh label create "chore"     --color "ededed" --description "雑務"         --repo "$REPO" --force
+
+      - name: Apply path-based labels
+        uses: actions/labeler@v5
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          configuration-path: .github/labeler.yml
