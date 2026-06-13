@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "gen:types": "cd .. && python scripts/gen_types.py",
-    "prebuild": "npm run gen:types",
+    "prebuild": "pnpm run gen:types",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
