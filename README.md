@@ -544,6 +544,18 @@ Gemini の Google 検索グラウンディングで直近〜今後3ヶ月の日�
 
 `dashboard/` 配下の変更が `main` にプッシュされると自動で Cloudflare Pages にデプロイ。
 
+### CI ワークフロー（品質チェック）
+
+PR ・`main` push 時に以下の3つのワークフローが並行実行される。**3つ全ての通過が auto-merge の条件**（GitHub ネイティブ auto-merge + branch protection 必須チェック）。
+
+| ワークフロー | チェック内容 |
+|---|---|
+| `python-ci.yml` | ruff（lint）・mypy（型検査）・pytest（テスト） |
+| `dashboard-ci.yml` | biome（lint）・tsc（型検査）・vitest（テスト） |
+| `type-drift.yml` | `scripts/gen_types.py` を実行し `_types.generated.ts` が最新かを検証 |
+
+auto-merge は `auto-merge.yml`（通常 PR）と `dependabot-auto-merge.yml`（Dependabot PR）が `gh pr merge --auto --squash` を呼び、GitHub が必須チェック全通過後に自動でマージする。
+
 ### 必要な GitHub Secrets
 
 | Secret 名 | 用途 |
