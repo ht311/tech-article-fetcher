@@ -26,95 +26,83 @@ logger = logging.getLogger(__name__)
 def _build_article_box(index: int, s: SelectedArticle) -> FlexBox:
     a = s.article
 
-    contents: list[object] = [
-        FlexBox(
-            layout="horizontal",
-            contents=[
-                FlexText(
-                    text=f"#{index}",
-                    weight="bold",
-                    color="#1DB446",
-                    flex=0,
-                    size="sm",
-                ),
-                FlexText(
-                    text=a.source,
-                    color="#888888",
-                    size="sm",
-                    align="end",
-                ),
-            ],
-        ),
-    ]
-
     thumbnail_url = getattr(a, "thumbnail_url", None)
     if thumbnail_url and len(thumbnail_url) > 2000:
         thumbnail_url = None
-    if thumbnail_url:
-        contents.append(
-            FlexImage(
-                url=thumbnail_url,
-                size="full",
-                aspect_ratio="20:13",
-                aspect_mode="cover",
-            )
-        )
 
-    text_contents: list[object] = [
-        FlexText(
-            text=a.title,
-            weight="bold",
-            wrap=True,
-            size="sm",
-        ),
+    header = FlexBox(
+        layout="horizontal",
+        contents=[
+            FlexText(
+                text=f"#{index}",
+                weight="bold",
+                color="#1DB446",
+                flex=0,
+                size="sm",
+            ),
+            FlexText(
+                text=a.source,
+                color="#888888",
+                size="sm",
+                align="end",
+            ),
+        ],
+    )
+
+    text_col: list[object] = [
+        FlexText(text=a.title, weight="bold", wrap=True, size="sm"),
     ]
     if s.summary:
-        text_contents.append(
-            FlexText(
-                text=s.summary,
-                wrap=True,
-                size="xs",
-            )
-        )
-    text_contents.append(
-        FlexText(
-            text=s.reason,
-            color="#888888",
-            wrap=True,
-            size="xs",
-        )
-    )
-    contents += text_contents + [
-        FlexBox(
+        text_col.append(FlexText(text=s.summary, wrap=True, size="xs"))
+    text_col.append(FlexText(text=s.reason, color="#888888", wrap=True, size="xs"))
+
+    if thumbnail_url:
+        body = FlexBox(
             layout="horizontal",
-            spacing="sm",
+            spacing="md",
             contents=[
-                FlexButton(
-                    action=MessageAction(label="👍 Good", text=f"👍{index}"),
-                    style="primary",
-                    height="sm",
-                    flex=1,
+                FlexImage(
+                    url=thumbnail_url,
+                    size="xxs",
+                    aspect_ratio="1:1",
+                    aspect_mode="cover",
+                    flex=0,
                 ),
-                FlexButton(
-                    action=MessageAction(label="👎 Bad", text=f"👎{index}"),
-                    style="secondary",
-                    height="sm",
-                    flex=1,
-                ),
-                FlexButton(
-                    action=URIAction(label="🔗 読む", uri=str(a.url)[:2000]),
-                    style="link",
-                    height="sm",
-                    flex=1,
-                ),
+                FlexBox(layout="vertical", flex=1, contents=text_col),
             ],
-        ),
-    ]
+        )
+    else:
+        body = FlexBox(layout="vertical", contents=text_col)
+
+    buttons = FlexBox(
+        layout="horizontal",
+        spacing="sm",
+        contents=[
+            FlexButton(
+                action=MessageAction(label="👍 Good", text=f"👍{index}"),
+                style="primary",
+                height="sm",
+                flex=1,
+            ),
+            FlexButton(
+                action=MessageAction(label="👎 Bad", text=f"👎{index}"),
+                style="secondary",
+                height="sm",
+                flex=1,
+            ),
+            FlexButton(
+                action=URIAction(label="🔗 読む", uri=str(a.url)[:2000]),
+                style="link",
+                height="sm",
+                flex=1,
+            ),
+        ],
+    )
 
     return FlexBox(
         layout="vertical",
         spacing="sm",
-        contents=contents,
+        contents=[header, body, buttons],
     )
 
 
