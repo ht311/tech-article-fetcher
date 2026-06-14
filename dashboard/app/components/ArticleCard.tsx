@@ -3,9 +3,11 @@ import type { Article } from "../lib/types";
 
 interface Props {
   article: Article;
+  rating?: "good" | "bad" | null;
+  onRate?: (action: "good" | "bad") => void;
 }
 
-export function ArticleCard({ article: a }: Props) {
+export function ArticleCard({ article: a, rating, onRate }: Props) {
   return (
     <a
       href={a.url}
@@ -51,6 +53,25 @@ export function ArticleCard({ article: a }: Props) {
             </span>
           )}
         </div>
+
+        {onRate && (
+          <div className="flex gap-2 mt-3">
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRate("good"); }}
+              className={`flex-1 text-sm py-1 rounded-lg border transition-colors ${rating === "good" ? "bg-green-100 border-green-400 text-green-700 font-semibold" : "border-gray-200 text-gray-400 hover:bg-green-50 hover:border-green-300 hover:text-green-600"}`}
+            >
+              👍
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRate("bad"); }}
+              className={`flex-1 text-sm py-1 rounded-lg border transition-colors ${rating === "bad" ? "bg-red-100 border-red-400 text-red-700 font-semibold" : "border-gray-200 text-gray-400 hover:bg-red-50 hover:border-red-300 hover:text-red-600"}`}
+            >
+              👎
+            </button>
+          </div>
+        )}
       </div>
     </a>
   );
