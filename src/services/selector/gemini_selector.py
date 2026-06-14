@@ -12,6 +12,7 @@ from src.core.config import (
     GEMINI_MAX_RETRIES,
     GEMINI_MODEL,
     GEMINI_RETRY_BASE_WAIT,
+    PREFERRED_TOPICS,
     SELECT_MAX_PER_CATEGORY,
 )
 from src.core.models import Article, CategoryDef, SelectedArticle, UserPreferences
@@ -54,7 +55,7 @@ def _build_system_prompt(
 - {category_constraint}
 
 出力形式: JSON配列のみ返してください。記事がある場合は必ず1件以上選ぶこと。
-[{{"index": 0, "reason": "選定理由（日本語30字以内）"}}, ...]"""
+[{{"index": 0, "reason": "選定理由（日本語30字以内）", "summary": "要点（100字以内）"}}, ...]"""
 
     if include_keywords:
         kw_line = "、".join(include_keywords)
@@ -114,8 +115,11 @@ async def _call_gemini(
             for sel in selections[:max_count]:
                 idx: int = sel["index"]
                 reason: str = sel["reason"]
+                summary: str = sel.get("summary", "")
                 if 0 <= idx < len(articles):
-                    results.append(SelectedArticle(article=articles[idx], reason=reason))
+                    results.append(
+                        SelectedArticle(article=articles[idx], reason=reason, summary=summary)
+                    )
 
             logger.info("Gemini (%s) selected %d articles", model, len(results))
             return results
@@ -141,7 +145,12 @@ async def _call_gemini(
 
 def _fallback_selection(articles: list[Article], category_id: str) -> list[SelectedArticle]:
     """Gemini が 0 件返したときのフォールバック: 先頭1件を自動選定する。"""
-    s = SelectedArticle(article=articles[0], reason="自動選定")
+    a = articles[0]
+    s = SelectedArticle(
+        article=a,
+        reason="自動選定",
+        summary=a.summary[:100] if a.summary else "",
+    )
     s.category_id = category_id
     return [s]
 
@@ -181,6 +190,20 @@ async def _select_for_category(
     return (category.id, _fallback_selection(articles, category.id))
 
 
+def _build_known_topics(
+    category_defs: list[CategoryDef],
+    include_keywords: list[str] | None,
+) -> list[str]:
+    """フィードバック学習に使うトピック語彙を構築する。"""
+    vocab: set[str] = set()
+    for cat in category_defs:
+        vocab.update(kw.lower() for kw in cat.keywords if kw)
+    vocab.update(t.lower() for t in PREFERRED_TOPICS if t)
+    if include_keywords:
+        vocab.update(kw.lower() for kw in include_keywords if kw)
+    return sorted(vocab)
+
+
 async def select_articles_by_category(
     buckets: dict[str, list[Article]],
     category_defs: list[CategoryDef],
@@ -194,7 +217,8 @@ async def select_articles_by_category(
         raise OSError("GEMINI_API_KEY is not set")
 
     client = genai.Client(api_key=api_key)
-    pref_summary = preferences.get_summary() if preferences else ""
+    known_topics = _build_known_topics(category_defs, include_keywords)
+    pref_summary = preferences.get_summary(known_topics) if preferences else ""
     kws = include_keywords or []
 
     tasks = [

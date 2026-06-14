@@ -4,7 +4,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from src.core.models import Article, CategoryDef, SelectedArticle
-from src.services.notifier.line_notifier import _build_category_flex_message, send_category_messages
+from src.services.notifier.line_notifier import (
+    _build_article_box,
+    _build_category_flex_message,
+    send_category_messages,
+)
 
 _DEFAULT_CATS = [
     CategoryDef(id="backend", name="バックエンド", keywords=["java"], enabled=True, order=0),
@@ -20,6 +24,7 @@ def _make_selected(
     source: str = "Zenn",
     reason: str = "実用的",
     cat_id: str = "backend",
+    summary: str = "",
 ) -> SelectedArticle:
     article = Article(
         title=title,
@@ -28,7 +33,24 @@ def _make_selected(
         source=source,
         published_at=datetime.now(UTC),
     )
-    return SelectedArticle(article=article, reason=reason, category_id=cat_id)
+    return SelectedArticle(article=article, reason=reason, summary=summary, category_id=cat_id)
+
+
+# --- _build_article_box ---
+
+
+def test_build_article_box_with_summary_includes_summary_text() -> None:
+    s = _make_selected(title="Java 最新情報", summary="Java 21 の主要変更点をまとめた記事。LTS版。")
+    box = _build_article_box(index=1, s=s)
+    texts = [c.text for c in box.contents if hasattr(c, "text")]  # type: ignore[attr-defined]
+    assert any("Java 21" in t for t in texts)
+
+
+def test_build_article_box_without_summary_omits_summary_field() -> None:
+    s = _make_selected(title="Java 記事", summary="")
+    box = _build_article_box(index=1, s=s)
+    texts = [c.text for c in box.contents if hasattr(c, "text")]  # type: ignore[attr-defined]
+    assert not any(t == "" for t in texts)
 
 
 # --- _build_category_flex_message ---

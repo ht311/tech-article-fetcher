@@ -251,6 +251,7 @@ class Article(BaseModel):
 class SelectedArticle(BaseModel):
     article: Article
     reason: str           # 日本語 30 字以内
+    summary: str = ""     # Gemini 生成の要点（日本語・最大 100 字）
     category_id: str | None = None  # "backend" | "frontend" | "aws" | "management" | "others"
 
 class ArticleFeedback(BaseModel):
@@ -277,7 +278,8 @@ class UserSettings(BaseModel):
 
 class UserPreferences(BaseModel):
     history: list[ArticleFeedback] = []
-    def get_summary(self) -> str: ...  # good/bad 上位 3 ソースをマークダウンで返す
+    def get_summary(self, known_topics: list[str] | None = None) -> str: ...
+    # ソース別 good/bad 上位 3 件 ＋ トピック別傾向（known_topics 指定時）をまとめて返す
 ```
 
 ---
@@ -315,8 +317,8 @@ Gemini に渡す前に各カテゴリを `published_at` 降順ソートし、最
 5 カテゴリを `asyncio.gather()` で並列実行。各カテゴリに対して:
 1. カテゴリ専用のシステムプロンプトを構築（選定観点・ユーザー嗜好サマリー・優先キーワードを含む）
 2. 候補記事をナンバリングしたテキストとして渡す
-3. Gemini が `[{"index": N, "reason": "理由"}]` 形式の JSON を返す
-4. インデックスで元記事を参照し `SelectedArticle` に変換
+3. Gemini が `[{"index": N, "reason": "理由", "summary": "要点"}]` 形式の JSON を返す
+4. インデックスで元記事を参照し `SelectedArticle`（`reason` + `summary`）に変換
 
 選定件数は `UserSettings.max_per_category`（1〜5）で動的に変更される。
 
@@ -337,7 +339,7 @@ Gemini に渡す前に各カテゴリを `published_at` 降順ソートし、最
 - 内容が浅い入門記事
 
 出力形式: JSON配列のみ
-[{"index": 0, "reason": "選定理由（日本語30字以内）"}, ...]
+[{"index": 0, "reason": "選定理由（日本語30字以内）", "summary": "要点（100字以内）"}, ...]
 
 {ユーザーが関心あるキーワード（UserSettings.include_keywords が設定されている場合）}
 {ユーザー嗜好サマリー（存在する場合）}
@@ -365,6 +367,7 @@ Gemini に渡す前に各カテゴリを `published_at` 降順ソートし、最
 │ #1                              Zenn │  ← 記事番号（緑）＋ソース名（グレー）
 │ [サムネイル画像]                      │  ← thumbnail_url がある場合のみ（20:13）
 │ タイトル（太字）                      │
+│ 要点（小文字・summary があれば表示）   │  ← Gemini 生成の最大 100 字要点
 │ 選定理由（グレー小文字）               │
 │ [👍 Good] [👎 Bad] [🔗 読む]         │  ← ボタン横並び
 ├──────────────────────────────────────┤
@@ -412,7 +415,7 @@ Gemini に渡す前に各カテゴリを `published_at` 降順ソートし、最
 [
   {
     "title": "...", "source": "Zenn", "url": "https://...",
-    "category_id": "backend", "reason": "選定理由",
+    "category_id": "backend", "reason": "選定理由", "summary": "Gemini生成要点",
     "thumbnail_url": "https://...", "published_at": "2026-04-19T08:00:00+00:00"
   }
 ]
@@ -450,16 +453,19 @@ Gemini に渡す前に各カテゴリを `published_at` 降順ソートし、最
 
 ### Gemini への嗜好反映
 
-`UserPreferences.get_summary()` で history を集計し、システムプロンプトに追記:
+`UserPreferences.get_summary(known_topics)` で history を集計し、システムプロンプトに追記:
 ```
 ユーザーの過去の評価傾向（参考情報）:
 - 高評価したソース: Zenn (4件), GitHub Blog (2件)
 - 低評価したソース: はてブIT (2件)
+- 高評価したトピック: java, rust
+- 低評価したトピック: python
 
 この傾向を参考にしつつ、多様性も維持してください。
 ```
 
-ソース別の good/bad 集計（各上位 3 件）のみ。トピック集計は行わない。
+ソース別 good/bad 集計（各上位 3 件）＋ トピック別集計（各上位 3 件）。  
+トピック語彙は `category_defs.keywords` + `PREFERRED_TOPICS` + `include_keywords` の和集合から構築し、評価済み記事タイトルとキーワードマッチで集計する。
 
 ---
 

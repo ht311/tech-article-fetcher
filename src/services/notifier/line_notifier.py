@@ -58,19 +58,31 @@ def _build_article_box(index: int, s: SelectedArticle) -> FlexBox:
             )
         )
 
-    contents += [
+    text_contents: list[object] = [
         FlexText(
             text=a.title,
             weight="bold",
             wrap=True,
             size="sm",
         ),
+    ]
+    if s.summary:
+        text_contents.append(
+            FlexText(
+                text=s.summary,
+                wrap=True,
+                size="xs",
+            )
+        )
+    text_contents.append(
         FlexText(
             text=s.reason,
             color="#888888",
             wrap=True,
             size="xs",
-        ),
+        )
+    )
+    contents += text_contents + [
         FlexBox(
             layout="horizontal",
             spacing="sm",

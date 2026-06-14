@@ -197,6 +197,7 @@ async def write_article_history(
                 "url": str(sa.article.url),
                 "category_id": sa.category_id,
                 "reason": sa.reason,
+                "summary": sa.summary,
                 "thumbnail_url": sa.article.thumbnail_url,
                 "published_at": (
                     sa.article.published_at.isoformat() if sa.article.published_at else None
