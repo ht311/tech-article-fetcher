@@ -24,8 +24,11 @@ from dotenv import load_dotenv
 
 from src.core.config import (
     CONFERENCE_SEARCH_HOURS,
+    ENABLE_PREFERENCE_RERANK,
+    ENABLE_SEMANTIC_DEDUP,
     EXTENDED_FETCH_HOURS,
     MAX_PINNED_PER_CATEGORY,
+    SEMANTIC_DEDUP_THRESHOLD,
     SENT_HISTORY_DEDUP_DAYS,
 )
 from src.core.models import Article, CategoryDef, SelectedArticle
@@ -36,6 +39,12 @@ from src.services.fetchers.rss_fetcher import fetch_all_rss
 from src.services.fetchers.speakerdeck_fetcher import fetch_speakerdeck
 from src.services.notifier.line_notifier import send_category_messages
 from src.services.selector.categorizer import bucket_articles
+from src.services.selector.embeddings import (
+    embed_texts,
+    preference_centroids,
+    preference_score,
+    semantic_dedup,
+)
 from src.services.selector.gemini_selector import deduplicate, select_articles_by_category
 from src.services.storage.preferences import (
     get_conferences,
@@ -158,13 +167,64 @@ async def main() -> None:
             )
         ]
 
-    buckets = bucket_articles(unique_articles, rc.category_defs, rc.gemini_max_input_per_category)
-    for cat_id, arts in buckets.items():
-        logger.info("Bucket %s: %d articles", cat_id, len(arts))
-
+    # embedding 取得（意味的 dedup・嗜好再ランクの共通基盤。失敗時は None でフォールバック）
     preferences = await get_preferences()
     if preferences.history:
         logger.info("Loaded %d preference records", len(preferences.history))
+
+    article_embeddings: list[list[float]] | None = None
+    url_to_score: dict[str, float] | None = None
+
+    if ENABLE_SEMANTIC_DEDUP or ENABLE_PREFERENCE_RERANK:
+        article_titles = [a.title for a in unique_articles]
+        feedback_titles = [f.title for f in preferences.history]
+        all_texts = article_titles + feedback_titles
+        all_embeddings = await embed_texts(all_texts)
+
+        if all_embeddings is not None:
+            # URL -> embedding のマップで管理（dedup 後も追跡できるようにする）
+            url_to_emb: dict[str, list[float]] = {
+                str(a.url): emb
+                for a, emb in zip(unique_articles, all_embeddings[: len(unique_articles)])
+            }
+            feedback_embeddings_raw = all_embeddings[len(unique_articles):]
+
+            if ENABLE_SEMANTIC_DEDUP:
+                article_embeddings = all_embeddings[: len(unique_articles)]
+                before = len(unique_articles)
+                unique_articles = semantic_dedup(
+                    unique_articles, article_embeddings, SEMANTIC_DEDUP_THRESHOLD
+                )
+                logger.info(
+                    "After semantic dedup: %d articles (removed %d)",
+                    len(unique_articles),
+                    before - len(unique_articles),
+                )
+
+            if ENABLE_PREFERENCE_RERANK and preferences.history:
+                feedback_pairs = list(zip(
+                    [f.action for f in preferences.history],
+                    feedback_embeddings_raw,
+                ))
+                good_c, bad_c = preference_centroids(feedback_pairs)
+                if good_c is not None or bad_c is not None:
+                    url_to_score = {
+                        url: preference_score(emb, good_c, bad_c)
+                        for url, emb in url_to_emb.items()
+                        if url in {str(a.url) for a in unique_articles}
+                    }
+                    logger.info(
+                        "Preference reranking enabled (good=%s, bad=%s)",
+                        good_c is not None, bad_c is not None,
+                    )
+        else:
+            logger.info("Embedding unavailable; using fallback (URL dedup + published_at order)")
+
+    buckets = bucket_articles(
+        unique_articles, rc.category_defs, rc.gemini_max_input_per_category, url_to_score
+    )
+    for cat_id, arts in buckets.items():
+        logger.info("Bucket %s: %d articles", cat_id, len(arts))
 
     selections = await select_articles_by_category(
         buckets,

@@ -148,6 +148,49 @@ def test_bucket_global_index_no_collision() -> None:
         assert len(arts) <= _MAX_INPUT, cat_id
 
 
+def test_bucket_articles_preference_rerank_promotes_high_score() -> None:
+    """url_to_score が渡されると、スコア高い記事が切り詰め後も残る。"""
+    limit = 2
+    articles = [
+        _make_article(f"https://a.com/{i}", title=f"Java 記事 {i}")
+        for i in range(5)
+    ]
+    # 末尾の記事（index=4）に最高スコアを与え、切り詰め後に残ることを確認
+    url_to_score = {str(a.url): float(i) for i, a in enumerate(articles)}
+    buckets = bucket_articles(articles, _DEFAULT_CATS, limit, url_to_score=url_to_score)
+    surviving_urls = {str(a.url) for a in buckets["backend"]}
+    assert "https://a.com/4" in surviving_urls  # 最高スコアは残る
+    assert "https://a.com/0" not in surviving_urls  # 最低スコアは落とされる
+
+
+def test_bucket_articles_url_to_score_none_uses_published_at() -> None:
+    """url_to_score=None のとき従来の published_at 降順で動作する（後方互換）。"""
+    from datetime import timedelta
+    now = datetime.now(UTC)
+    articles = [
+        _make_article(f"https://a.com/{i}", title=f"Java 記事 {i}")
+        for i in range(3)
+    ]
+    articles[0] = Article(
+        title="Java 記事 0", url="https://a.com/0",
+        source="Test", published_at=now - timedelta(hours=2),
+    )
+    articles[1] = Article(
+        title="Java 記事 1", url="https://a.com/1",
+        source="Test", published_at=now - timedelta(hours=1),
+    )
+    articles[2] = Article(
+        title="Java 記事 2", url="https://a.com/2",
+        source="Test", published_at=now,
+    )
+    buckets = bucket_articles(articles, _DEFAULT_CATS, 2)
+    # 最新の2件が残る
+    surviving_urls = {str(a.url) for a in buckets["backend"]}
+    assert "https://a.com/2" in surviving_urls
+    assert "https://a.com/1" in surviving_urls
+    assert "https://a.com/0" not in surviving_urls
+
+
 # --- select_articles_by_category ---
 
 @pytest.mark.asyncio
