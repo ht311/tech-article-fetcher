@@ -39,18 +39,25 @@ def _make_selected(
 # --- _build_article_box ---
 
 
+def _all_texts(box: object) -> list[str]:
+    result = []
+    for c in getattr(box, "contents", []) or []:
+        if hasattr(c, "text") and isinstance(c.text, str):
+            result.append(c.text)
+        result.extend(_all_texts(c))
+    return result
+
+
 def test_build_article_box_with_summary_includes_summary_text() -> None:
     s = _make_selected(title="Java 最新情報", summary="Java 21 の主要変更点をまとめた記事。LTS版。")
     box = _build_article_box(index=1, s=s)
-    texts = [c.text for c in box.contents if hasattr(c, "text")]  # type: ignore[attr-defined]
-    assert any("Java 21" in t for t in texts)
+    assert any("Java 21" in t for t in _all_texts(box))
 
 
 def test_build_article_box_without_summary_omits_summary_field() -> None:
     s = _make_selected(title="Java 記事", summary="")
     box = _build_article_box(index=1, s=s)
-    texts = [c.text for c in box.contents if hasattr(c, "text")]  # type: ignore[attr-defined]
-    assert not any(t == "" for t in texts)
+    assert not any(t == "" for t in _all_texts(box))
 
 
 # --- _build_category_flex_message ---
