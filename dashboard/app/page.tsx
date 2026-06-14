@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCategories } from "./lib/useCategories";
 import { groupByCategory } from "./lib/groupByCategory";
 import { CategorySection } from "./components/CategorySection";
+import { getRatings, setRating } from "./lib/ratings";
 import type { Article } from "./lib/types";
 
 interface StatsData {
@@ -26,8 +27,10 @@ export default function HomePage() {
   const [stats, setStats] = useState<StatsData | null>(null);
   const [today, setToday] = useState<{ date: string; articles: Article[] } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [ratings, setRatings] = useState<Record<string, "good" | "bad">>({});
 
   useEffect(() => {
+    setRatings(getRatings());
     const todayStr = new Date().toISOString().slice(0, 10);
     Promise.all([
       fetch("/api/stats").then((r) => r.json() as Promise<StatsData>),
@@ -38,6 +41,30 @@ export default function HomePage() {
       setLoading(false);
     });
   }, []);
+
+  function handleRate(article: Article, action: "good" | "bad") {
+    const prev = ratings[article.url];
+    if (prev === action) {
+      setRating(article.url, null);
+      setRatings((r) => { const next = { ...r }; delete next[article.url]; return next; });
+      return;
+    }
+    setRating(article.url, action);
+    setRatings((r) => ({ ...r, [article.url]: action }));
+    fetch("/api/preferences", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, title: article.title, source: article.source, url: article.url }),
+    }).catch((err) => {
+      console.warn("Failed to record rating", err);
+      setRating(article.url, prev ?? null);
+      setRatings((r) => {
+        const next = { ...r };
+        if (prev) next[article.url] = prev; else delete next[article.url];
+        return next;
+      });
+    });
+  }
 
   if (loading) return <p className="text-gray-500 text-sm">読み込み中...</p>;
 
@@ -93,6 +120,8 @@ export default function HomePage() {
                 id={group.id}
                 name={group.name}
                 articles={group.articles}
+                ratings={ratings}
+                onRate={handleRate}
               />
             ))}
           </div>
