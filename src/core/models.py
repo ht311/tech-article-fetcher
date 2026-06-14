@@ -22,6 +22,7 @@ class SelectedArticle(BaseModel):
 
     article: Article
     reason: str  # 日本語30字以内の選定理由
+    summary: str = ""  # Gemini 生成の短い要約（日本語・最大100字）
     category_id: str | None = None
 
 
@@ -87,8 +88,12 @@ class UserPreferences(BaseModel):
 
     history: list[ArticleFeedback] = []
 
-    def get_summary(self) -> str:
-        """Gemini プロンプト用の嗜好サマリーを生成する。履歴が空の場合は空文字を返す。"""
+    def get_summary(self, known_topics: list[str] | None = None) -> str:
+        """Gemini プロンプト用の嗜好サマリーを生成する。履歴が空の場合は空文字を返す。
+
+        known_topics を渡すと、評価済み記事タイトルとのキーワードマッチで
+        高評価/低評価トピックを追加集計する。
+        """
         if not self.history:
             return ""
 
@@ -106,6 +111,30 @@ class UserPreferences(BaseModel):
             bad_sources = Counter(f.source for f in bad).most_common(3)
             src_str = ", ".join(f"{s} ({c}件)" for s, c in bad_sources)
             lines.append(f"- 低評価したソース: {src_str}")
+
+        if known_topics:
+            vocab = [t.lower() for t in known_topics if t]
+
+            good_topics: Counter[str] = Counter()
+            for f in good:
+                title_lower = f.title.lower()
+                for kw in vocab:
+                    if kw in title_lower:
+                        good_topics[kw] += 1
+
+            bad_topics: Counter[str] = Counter()
+            for f in bad:
+                title_lower = f.title.lower()
+                for kw in vocab:
+                    if kw in title_lower:
+                        bad_topics[kw] += 1
+
+            if good_topics:
+                kw_str = ", ".join(kw for kw, _ in good_topics.most_common(3))
+                lines.append(f"- 高評価したトピック: {kw_str}")
+            if bad_topics:
+                kw_str = ", ".join(kw for kw, _ in bad_topics.most_common(3))
+                lines.append(f"- 低評価したトピック: {kw_str}")
 
         lines.append("\nこの傾向を参考にしつつ、多様性も維持してください。")
         return "\n".join(lines)

@@ -71,7 +71,12 @@ def _pin_important(
         _epoch = datetime.min.replace(tzinfo=UTC)
         candidates.sort(key=lambda a: a.published_at or _epoch, reverse=True)
         pins = [
-            SelectedArticle(article=a, reason=f"重要: {a.source}", category_id=cat.id)
+            SelectedArticle(
+                article=a,
+                reason=f"重要: {a.source}",
+                summary=a.summary[:100] if a.summary else "",
+                category_id=cat.id,
+            )
             for a in candidates[:max_pins]
         ]
         if pins:

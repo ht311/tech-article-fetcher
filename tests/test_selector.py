@@ -156,7 +156,10 @@ async def test_select_articles_by_category_success() -> None:
     buckets = {"backend": articles, "frontend": [], "aws": [], "management": [], "others": []}
 
     mock_response = MagicMock()
-    mock_response.text = '[{"index": 0, "reason": "理由1"}, {"index": 1, "reason": "理由2"}]'
+    mock_response.text = (
+        '[{"index": 0, "reason": "理由1", "summary": "要約1"},'
+        ' {"index": 1, "reason": "理由2", "summary": "要約2"}]'
+    )
     mock_client = MagicMock()
     mock_client.models.generate_content.return_value = mock_response
 
@@ -170,6 +173,28 @@ async def test_select_articles_by_category_success() -> None:
     assert len(selections["backend"]) == 2
     assert all(s.category_id == "backend" for s in selections["backend"])
     assert selections["frontend"] == []
+    assert selections["backend"][0].summary == "要約1"
+    assert selections["backend"][1].summary == "要約2"
+
+
+@pytest.mark.asyncio
+async def test_select_articles_by_category_summary_missing_graceful() -> None:
+    """Gemini が summary を返さなくてもエラーにならず空文字になる。"""
+    articles = [_make_article("https://example.com/0", title="Java 記事")]
+    buckets = {"backend": articles, "frontend": [], "aws": [], "management": [], "others": []}
+
+    mock_response = MagicMock()
+    mock_response.text = '[{"index": 0, "reason": "理由のみ"}]'
+    mock_client = MagicMock()
+    mock_client.models.generate_content.return_value = mock_response
+
+    with (
+        patch.dict("os.environ", {"GEMINI_API_KEY": "test-key"}),
+        patch("src.services.selector.gemini_selector.genai.Client", return_value=mock_client),
+    ):
+        selections = await select_articles_by_category(buckets, _DEFAULT_CATS)
+
+    assert selections["backend"][0].summary == ""
 
 
 @pytest.mark.asyncio
