@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useCategories, categoryLabel } from "./lib/useCategories";
+import { useCategories } from "./lib/useCategories";
+import { groupByCategory } from "./lib/groupByCategory";
+import { CategorySection } from "./components/CategorySection";
+import type { Article } from "./lib/types";
 
 interface StatsData {
   totalGood: number;
@@ -15,13 +18,13 @@ interface StatsData {
 
 interface ArticlesData {
   dates: string[];
-  articles: Record<string, { title: string; source: string; url: string; category_id: string | null }[]>;
+  articles: Record<string, Article[]>;
 }
 
 export default function HomePage() {
   const categories = useCategories();
   const [stats, setStats] = useState<StatsData | null>(null);
-  const [today, setToday] = useState<{ date: string; articles: ArticlesData["articles"][string] } | null>(null);
+  const [today, setToday] = useState<{ date: string; articles: Article[] } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -42,12 +45,14 @@ export default function HomePage() {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3);
 
+  const categoryGroups = groupByCategory(today?.articles ?? [], categories);
+
   return (
-    <div className="space-y-8">
-      <h1 className="text-2xl font-bold">ダッシュボード</h1>
+    <div className="space-y-6">
+      <h1 className="text-xl sm:text-2xl font-bold">ダッシュボード</h1>
 
       {/* サマリーカード */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: "👍 Good 合計", value: stats?.totalGood ?? 0 },
           { label: "👎 Bad 合計", value: stats?.totalBad ?? 0 },
@@ -60,40 +65,35 @@ export default function HomePage() {
                 : "—",
           },
         ].map(({ label, value }) => (
-          <div key={label} className="bg-white rounded-xl border border-gray-200 p-4">
+          <div key={label} className="bg-white rounded-xl border border-gray-200 p-3 sm:p-4">
             <p className="text-xs text-gray-500">{label}</p>
-            <p className="text-2xl font-bold mt-1">{value}</p>
+            <p className="text-xl sm:text-2xl font-bold mt-1">{value}</p>
           </div>
         ))}
       </div>
 
-      {/* 今日の配信 */}
+      {/* 今日の配信（カテゴリ別） */}
       <section>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="font-semibold">今日の配信 ({today?.date})</h2>
-          <Link href="/articles/" className="text-sm text-blue-600 hover:underline">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold text-sm sm:text-base">
+            今日の配信{today?.date ? ` (${today.date})` : ""}
+          </h2>
+          <Link href="/articles/" className="text-xs sm:text-sm text-blue-600 hover:underline shrink-0">
             過去記事を見る →
           </Link>
         </div>
-        {today?.articles.length === 0 ? (
+
+        {(today?.articles.length ?? 0) === 0 ? (
           <p className="text-sm text-gray-400">本日の配信はまだありません</p>
         ) : (
-          <div className="space-y-2">
-            {today?.articles.map((a) => (
-              <a
-                key={a.url}
-                href={a.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block bg-white border border-gray-200 rounded-lg px-4 py-3 hover:border-blue-300 transition-colors"
-              >
-                <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
-                  <span>{categoryLabel(categories, a.category_id)}</span>
-                  <span>·</span>
-                  <span>{a.source}</span>
-                </div>
-                <p className="text-sm font-medium line-clamp-2">{a.title}</p>
-              </a>
+          <div className="space-y-5">
+            {categoryGroups.map((group) => (
+              <CategorySection
+                key={group.id}
+                id={group.id}
+                name={group.name}
+                articles={group.articles}
+              />
             ))}
           </div>
         )}
@@ -102,12 +102,15 @@ export default function HomePage() {
       {/* 高評価ソース */}
       {topGood.length > 0 && (
         <section>
-          <h2 className="font-semibold mb-3">高評価ソース Top 3</h2>
-          <div className="flex gap-3">
+          <h2 className="font-semibold mb-3 text-sm sm:text-base">高評価ソース Top 3</h2>
+          <div className="flex gap-2 sm:gap-3 flex-wrap">
             {topGood.map(([source, count]) => (
-              <div key={source} className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 flex-1">
-                <p className="text-sm font-medium">{source}</p>
-                <p className="text-lg font-bold text-green-600">👍 {count}</p>
+              <div
+                key={source}
+                className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 sm:px-4 sm:py-3 flex-1 min-w-[6rem]"
+              >
+                <p className="text-xs sm:text-sm font-medium truncate">{source}</p>
+                <p className="text-base sm:text-lg font-bold text-green-600">👍 {count}</p>
               </div>
             ))}
           </div>

@@ -52,6 +52,10 @@ Cloudflare Worker（常時稼働・無料）
 
 Cloudflare Pages（ダッシュボード・常時稼働・無料）
   ├── Next.js 静的サイト（過去記事・統計・設定を閲覧／編集）
+  │   ├── ホーム: 今日の配信をカテゴリ別セクション + サムネ + Gemini 3行要約カードで表示（レスポンシブ）
+  │   ├── 過去記事: 日付選択（スマホ横スクロールチップ / デスクトップ左サイドバー）+ カテゴリ別カード
+  │   ├── 統計: Good/Bad フィードバック集計・週次トレンドグラフ
+  │   └── 設定: カテゴリ・ソース・配信パラメータの編集
   ├── Pages Functions で API を提供（同一 KV Namespace を共有）
   │   ├── GET /api/articles   — 日別記事履歴
   │   ├── GET /api/stats      — フィードバック統計・週次トレンド
@@ -84,7 +88,15 @@ tech-article-fetcher/
 │       ├── selector/    # カテゴリ分類・記事選定（Gemini）・embedding 基盤
 │       ├── notifier/    # LINE 通知
 │       └── storage/     # Cloudflare KV 連携
-├── dashboard/           # Web ダッシュボード（Next.js）
+├── dashboard/           # Web ダッシュボード（Next.js + Tailwind CSS）
+│   ├── app/             # Next.js App Router ページ
+│   │   ├── components/  # 共有コンポーネント（ArticleCard, CategorySection, ...）
+│   │   ├── lib/         # ユーティリティ（groupByCategory, categoryColors, ...）
+│   │   ├── page.tsx     # ホーム（今日の配信・カテゴリ別カード）
+│   │   ├── articles/    # 過去記事ページ
+│   │   ├── stats/       # 統計ページ
+│   │   └── settings/    # 設定ページ
+│   └── functions/       # Cloudflare Pages Functions（API エンドポイント）
 ├── tests/               # ユニット・統合テスト
 └── docs/                # ドキュメント
 ```
