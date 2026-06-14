@@ -34,6 +34,7 @@ from src.core.config import (
 from src.core.models import Article, CategoryDef, SelectedArticle
 from src.core.runtime_config import build_default_user_settings, build_runtime_config
 from src.services.fetchers.conference_fetcher import fetch_conference_slides
+from src.services.fetchers.ogp_fetcher import enrich_thumbnails
 from src.services.fetchers.qiita_fetcher import fetch_qiita
 from src.services.fetchers.rss_fetcher import fetch_all_rss
 from src.services.fetchers.speakerdeck_fetcher import fetch_speakerdeck
@@ -239,6 +240,11 @@ async def main() -> None:
 
     total = sum(len(v) for v in selections.values())
     logger.info("Selected total %d articles across %d categories", total, len(selections))
+
+    # 選定記事の og:image を取得して thumbnail_url を補完/上書き
+    selected_articles = [s.article for arts in selections.values() for s in arts]
+    await enrich_thumbnails(selected_articles)
+    logger.info("Thumbnail enrichment done.")
 
     await send_category_messages(selections, rc.category_defs)
     logger.info("LINE messages sent.")

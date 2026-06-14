@@ -34,6 +34,7 @@ Python スクリプト (src/cli/main.py)
   │   （カテゴリ ON/OFF・ソース ON/OFF・除外キーワード）
   ├── Gemini API (gemini-2.5-flash) でカテゴリ別に並列選定（件数・優先キーワード反映）
   ├── 重要記事のピン留め（Gemini が落とした重要ソース記事をカテゴリ先頭へ強制挿入）★
+  ├── 選定記事の og:image を並列 GET してサムネを補完・上書き（OGP enrichment）★
   ├── LINE Messaging API（Flex Message）でカテゴリ別に送信（最大 5 メッセージ）
   └── 送信記事リストを Cloudflare KV に書き込み（last_articles + 日別履歴）
 
@@ -52,7 +53,7 @@ Cloudflare Worker（常時稼働・無料）
 
 Cloudflare Pages（ダッシュボード・常時稼働・無料）
   ├── Next.js 静的サイト（過去記事・統計・設定を閲覧／編集）
-  │   ├── ホーム: 今日の配信をカテゴリ別セクション + サムネ + Gemini 3行要約カードで表示（レスポンシブ）
+  │   ├── ホーム: 今日の配信をカテゴリ別セクション + Twitter 風ワイドサムネカード（OGP 1.91:1 比）で表示（レスポンシブ 1〜3列）
   │   ├── 過去記事: 日付選択（スマホ横スクロールチップ / デスクトップ左サイドバー）+ カテゴリ別カード
   │   ├── 統計: Good/Bad フィードバック集計・週次トレンドグラフ
   │   └── 設定: カテゴリ・ソース・配信パラメータの編集
@@ -84,7 +85,7 @@ tech-article-fetcher/
 │   │   ├── models.py    # Pydantic データモデル
 │   │   └── runtime_config.py  # ランタイム設定
 │   └── services/        # ビジネスロジック・外部連携
-│       ├── fetchers/    # 記事取得（RSS, Qiita, SpeakerDeck, Conference）
+│       ├── fetchers/    # 記事取得（RSS, Qiita, SpeakerDeck, Conference, OGP enrichment）
 │       ├── selector/    # カテゴリ分類・記事選定（Gemini）・embedding 基盤
 │       ├── notifier/    # LINE 通知
 │       └── storage/     # Cloudflare KV 連携
@@ -234,7 +235,7 @@ mypy src/
 
 ★ 重要ソースは取得ウィンドウを 7 日（168h）に拡張し、Gemini が選ばなかった場合もカテゴリ先頭にピン留めして確実に配信する。
 
-サムネイル画像を `media:thumbnail` / `media:content` / `enclosures` から自動抽出する。
+サムネイル画像は RSS フィードの `media:thumbnail` / `media:content` / `enclosures` から抽出する。さらに Gemini 選定後に `ogp_fetcher.py` が各記事 URL へ並列 GET し、`og:image` / `twitter:image` を優先取得して `thumbnail_url` を上書きする（取得失敗時は既存値を維持）。
 
 ### API 取得ソース
 

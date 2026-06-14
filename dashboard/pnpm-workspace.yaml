@@ -1,4 +1,5 @@
-minimumReleaseAge: "3 days"
+minimumReleaseAge: 10080
 allowBuilds:
   esbuild: true
   sharp: true
+  workerd: false

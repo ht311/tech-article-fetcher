@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.5.0/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.4.16/schema.json",
   "files": {
     "includes": ["app/**/*.ts", "app/**/*.tsx", "functions/**/*.ts", "!**/.next/**", "!**/out/**"]
   },
@@ -9,7 +9,7 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "preset": "recommended"
+      "recommended": true
     }
   },
   "assist": {
