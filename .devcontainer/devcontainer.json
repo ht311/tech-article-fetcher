@@ -30,6 +30,6 @@
       }
     }
   },
-  "postCreateCommand": "pip install -e '.[dev]' && npm install -g @anthropic-ai/claude-code && npm install -g pnpm@11.6.0",
+  "postCreateCommand": "pip install -e '.[dev]' && npm install -g @anthropic-ai/claude-code && npm install -g pnpm@10.34.3",
   "remoteUser": "vscode"
 }

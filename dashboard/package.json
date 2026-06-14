@@ -2,7 +2,7 @@
   "name": "dashboard",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "pnpm@11.6.0",
+  "packageManager": "pnpm@10.34.3",
   "scripts": {
     "gen:types": "cd .. && python scripts/gen_types.py",
     "prebuild": "pnpm run gen:types",
@@ -23,17 +23,5 @@
     "react-dom": "19.2.4",
     "recharts": "^3.8.1"
   },
-  "devDependencies": {
-    "@biomejs/biome": "^2.5.0",
-    "@playwright/test": "^1.49.0",
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "json-schema-to-typescript": "^15.0.4",
-    "tailwindcss": "^4",
-    "typescript": "^5",
-    "vitest": "^4.1.4",
-    "wrangler": "^4"
-  }
+  "devDependencies": {}
 }
