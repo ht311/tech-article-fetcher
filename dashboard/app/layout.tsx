@@ -24,9 +24,9 @@ export default function RootLayout({
   return (
     <html lang="ja" className={`${geist.className} ${notoSansJP.className} h-full`}>
       <body className="min-h-full flex flex-col bg-gray-50 text-gray-900">
-        <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-6">
+        <header className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 flex items-center gap-4 sm:gap-6 flex-wrap">
           <span className="font-semibold text-sm">📰 Article Dashboard</span>
-          <nav className="flex gap-4">
+          <nav className="flex gap-3 sm:gap-4 flex-wrap">
             {NAV_LINKS.map(({ href, label }) => (
               <Link
                 key={href}
@@ -38,7 +38,7 @@ export default function RootLayout({
             ))}
           </nav>
         </header>
-        <main className="flex-1 px-6 py-6 max-w-5xl mx-auto w-full">
+        <main className="flex-1 px-4 sm:px-6 py-4 sm:py-6 max-w-5xl mx-auto w-full">
           {children}
         </main>
       </body>
