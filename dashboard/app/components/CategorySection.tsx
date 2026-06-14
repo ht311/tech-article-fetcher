@@ -6,9 +6,11 @@ interface Props {
   id: string;
   name: string;
   articles: Article[];
+  ratings?: Record<string, "good" | "bad">;
+  onRate?: (article: Article, action: "good" | "bad") => void;
 }
 
-export function CategorySection({ id, name, articles }: Props) {
+export function CategorySection({ id, name, articles, ratings, onRate }: Props) {
   if (articles.length === 0) return null;
 
   return (
@@ -26,7 +28,12 @@ export function CategorySection({ id, name, articles }: Props) {
       {/* 記事カードグリッド（スマホ1列 / デスクトップ2列） */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {articles.map((a) => (
-          <ArticleCard key={a.url} article={a} />
+          <ArticleCard
+            key={a.url}
+            article={a}
+            rating={ratings?.[a.url] ?? null}
+            onRate={onRate ? (action) => onRate(a, action) : undefined}
+          />
         ))}
       </div>
     </section>
