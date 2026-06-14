@@ -1,15 +1,11 @@
 name: Deploy Dashboard to Cloudflare Pages
 
 on:
-  # auto-merge が GITHUB_TOKEN 経由のため push イベントが発火しない問題を回避。
-  # PR close (= merged) イベントで代替する。
+  # GITHUB_TOKEN 経由の auto-merge では push イベントが他ワークフローに伝播しないため、
+  # PR close (= merged) イベントをトリガーとして使用する。main は保護ブランチのため
+  # 直接 push は不可であり、PR merge がデプロイの唯一の経路となる。
   pull_request:
     types: [closed]
-    branches: [main]
-    paths:
-      - "dashboard/**"
-  # 直接 push（ホットフィックス等）と手動実行も引き続きサポート
-  push:
     branches: [main]
     paths:
       - "dashboard/**"
