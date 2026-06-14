@@ -101,6 +101,13 @@ GEMINI_MAX_INPUT_PER_CATEGORY = 25
 GEMINI_MAX_RETRIES = 5
 GEMINI_RETRY_BASE_WAIT = 2.0  # seconds
 
+# Embedding 基盤
+GEMINI_EMBED_MODEL = "gemini-embedding-001"
+SEMANTIC_DEDUP_THRESHOLD = 0.88  # これ以上のコサイン類似度を同一トピックとみなす（要調整）
+ENABLE_SEMANTIC_DEDUP = True
+ENABLE_PREFERENCE_RERANK = True
+MAX_EMBED_TEXTS_PER_RUN = 400   # 1実行あたりの埋め込み上限ガード。超過時はフォールバック
+
 
 # Hacker News API（Firebase REST API、認証不要）
 HN_TOP_STORIES_URL = "https://hacker-news.firebaseio.com/v0/topstories.json"

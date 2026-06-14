@@ -22,19 +22,33 @@ def bucket_articles(
     articles: list[Article],
     category_defs: list[CategoryDef],
     gemini_max_input: int,
+    url_to_score: dict[str, float] | None = None,
 ) -> dict[str, list[Article]]:
     """記事リストを大カテゴリごとにバケット分けして返す。
-    各バケットは published_at 降順でソートされ gemini_max_input 件に切り詰められる。
+
+    各バケットは gemini_max_input 件に切り詰められる。ソート順:
+    - url_to_score が渡された場合: 嗜好スコア降順 → published_at 降順（好みの記事を優先して残す）
+    - 渡されない場合: published_at 降順（従来動作）
     """
     buckets: dict[str, list[Article]] = {cat.id: [] for cat in category_defs}
     for article in articles:
         cat_id = classify(article, category_defs)
         if cat_id in buckets:
             buckets[cat_id].append(article)
+
     for cat_id in buckets:
-        buckets[cat_id].sort(
-            key=lambda a: a.published_at if a.published_at else _EPOCH,
-            reverse=True,
-        )
+        if url_to_score is not None:
+            buckets[cat_id].sort(
+                key=lambda a: (
+                    url_to_score.get(str(a.url), 0.0),
+                    a.published_at if a.published_at else _EPOCH,
+                ),
+                reverse=True,
+            )
+        else:
+            buckets[cat_id].sort(
+                key=lambda a: a.published_at if a.published_at else _EPOCH,
+                reverse=True,
+            )
         buckets[cat_id] = buckets[cat_id][:gemini_max_input]
     return buckets

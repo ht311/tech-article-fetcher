@@ -24,6 +24,10 @@ Python スクリプト (src/cli/main.py)
   │   └── カンファレンス検索（KV の conferences リストで SpeakerDeck / Docswell を検索）★
   ├── 重複排除（URL ベース）→ 送信済み URL（直近 7 日）を除外★
   ├── Cloudflare KV からユーザー嗜好・配信設定・カンファレンスリストを並列読み込み
+  ├── Gemini Embedding API (gemini-embedding-001) で記事タイトル＋嗜好履歴をベクトル化★
+  │   ├── 意味的重複排除（コサイン類似度 ≥ 0.88 の同一トピック記事をクラスタ化・1件に集約）★
+  │   └── 嗜好ベクトル再ランク（good/bad重心との類似度スコアで Gemini 入力順を変更）★
+  │       ※ Embedding API 失敗時は URL 重複排除 + published_at 順にフォールバック
   ├── キーワードマッチングで 5 カテゴリに分類
   │   （backend / frontend / aws / management / others）
   ├── 配信設定（UserSettings）に基づきフィルタ
@@ -77,7 +81,7 @@ tech-article-fetcher/
 │   │   └── runtime_config.py  # ランタイム設定
 │   └── services/        # ビジネスロジック・外部連携
 │       ├── fetchers/    # 記事取得（RSS, Qiita, SpeakerDeck, Conference）
-│       ├── selector/    # カテゴリ分類・記事選定（Gemini）
+│       ├── selector/    # カテゴリ分類・記事選定（Gemini）・embedding 基盤
 │       ├── notifier/    # LINE 通知
 │       └── storage/     # Cloudflare KV 連携
 ├── dashboard/           # Web ダッシュボード（Next.js）
@@ -297,7 +301,34 @@ class UserPreferences(BaseModel):
 | `management` | 開発マネジメント | em, engineering manager, scrum, agile, 1on1, チーム, マネジメント, ... |
 | `others` | その他 | （上記に非該当） |
 
-Gemini に渡す前に各カテゴリを `published_at` 降順ソートし、最大 `GEMINI_MAX_INPUT_PER_CATEGORY`（25件）に切り詰める。
+Gemini に渡す前に各カテゴリを最大 `GEMINI_MAX_INPUT_PER_CATEGORY`（25件）に切り詰める。  
+ソート順: 嗜好ベクトル再ランクが有効なときは嗜好スコア降順 → `published_at` 降順。無効時は `published_at` 降順のみ。
+
+---
+
+## Embedding 基盤（`src/services/selector/embeddings.py`）
+
+Gemini 選定の前処理として、記事タイトルと嗜好履歴を `gemini-embedding-001` でベクトル化し、2 つの精度向上処理を行う。いずれも API 失敗時は現状動作にフォールバックするため、障害時も配信は継続する。
+
+### 意味的重複排除（`ENABLE_SEMANTIC_DEDUP = True`）
+
+URL が異なっても同じトピックを扱う記事（例: 公式ブログ + Zenn 解説 + はてブ）を排除する。
+
+- 全記事タイトルを embedding し、コサイン類似度が `SEMANTIC_DEDUP_THRESHOLD`（0.88）以上の記事群を同一クラスタとみなす
+- 各クラスタから 1 件だけ残す。残す優先度: `is_important` > `published_at` 新しい順
+
+### 嗜好ベクトル再ランク（`ENABLE_PREFERENCE_RERANK = True`）
+
+good/bad フィードバック履歴から「好みの方向」を表すベクトル重心を計算し、候補記事をスコアリングして Gemini 入力の切り詰め順を変える。
+
+- good 評価済みタイトルの重心ベクトルと bad 評価済みタイトルの重心ベクトルを算出
+- 各記事のスコア = `cosine_sim(article, good重心) - cosine_sim(article, bad重心)`
+- スコア降順 → published_at 降順で `GEMINI_MAX_INPUT_PER_CATEGORY` 件に切り詰め → Gemini へ渡す
+- 履歴が空のときはスコア計算をスキップし、published_at 順にフォールバック
+
+### 上限ガード
+
+1 実行あたりの埋め込みテキスト数が `MAX_EMBED_TEXTS_PER_RUN`（400）を超える場合は embedding をスキップしてフォールバック（ゼロコスト維持のセーフガード）。
 
 ---
 
@@ -309,6 +340,7 @@ Gemini に渡す前に各カテゴリを `published_at` 降順ソートし、最
 |---|---|
 | プライマリモデル | `gemini-2.5-flash` |
 | フォールバックモデル | `gemini-2.5-flash` |
+| Embedding モデル | `gemini-embedding-001`（意味的 dedup・嗜好再ランク用） |
 | カテゴリ別最大選定数 | 5 件（`SELECT_MAX_PER_CATEGORY`） |
 | 最大リトライ数 | 5 回（指数バックオフ、ベース 2 秒） |
 
