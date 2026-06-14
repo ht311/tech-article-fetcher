@@ -51,6 +51,23 @@ resource "cloudflare_workers_script" "webhook" {
     name = "LINE_CHANNEL_ACCESS_TOKEN"
     text = var.line_channel_access_token
   }
+
+  # GITHUB_TOKEN を Secret として設定（Cron Trigger から workflow_dispatch を呼ぶ用）
+  secret_text_binding {
+    name = "GITHUB_TOKEN"
+    text = var.github_token
+  }
+}
+
+# -------------------------------------------------------------------
+# Cloudflare Workers Cron Trigger — 日次フェッチ定時起動
+# GitHub Actions の schedule 遅延（毎日 40〜70 分）を回避するため、
+# Cron Trigger から workflow_dispatch で daily-fetch.yml を起動する。
+# -------------------------------------------------------------------
+resource "cloudflare_workers_cron_trigger" "daily_fetch" {
+  account_id  = var.cloudflare_account_id
+  script_name = cloudflare_workers_script.webhook.name
+  schedules   = ["15 23 * * *"] # 23:15 UTC = JST 8:15（dispatch 起動なので遅延なし、通知 ~8:17）
 }
 
 # -------------------------------------------------------------------

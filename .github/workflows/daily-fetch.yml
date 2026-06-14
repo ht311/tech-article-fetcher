@@ -1,9 +1,7 @@
 name: Daily Tech Article Fetch
 
 on:
-  schedule:
-    - cron: "15 23 * * *" # JST 8:15 毎朝（混雑回避）
-  workflow_dispatch: # 手動実行
+  workflow_dispatch: # Cloudflare Cron Trigger（23:15 UTC = JST 8:15）から起動 + 手動実行
 
 jobs:
   fetch-and-notify:

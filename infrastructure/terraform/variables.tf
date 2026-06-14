@@ -25,3 +25,9 @@ variable "owner_email" {
   description = "オーナーのメールアドレス"
   type        = string
 }
+
+variable "github_token" {
+  description = "GitHub Fine-grained PAT（daily-fetch.yml の workflow_dispatch 用、権限: Actions: Read and write）"
+  type        = string
+  sensitive   = true
+}
