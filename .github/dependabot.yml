@@ -6,7 +6,7 @@ updates:
       interval: "weekly"
       day: "monday"
     cooldown:
-      default-days: 3
+      default-days: 7
     open-pull-requests-limit: 10
     groups:
       minor-and-patch:
@@ -18,7 +18,7 @@ updates:
       interval: "weekly"
       day: "monday"
     cooldown:
-      default-days: 3
+      default-days: 7
     open-pull-requests-limit: 10
     groups:
       minor-and-patch:
@@ -30,7 +30,7 @@ updates:
       interval: "weekly"
       day: "monday"
     cooldown:
-      default-days: 3
+      default-days: 7
     open-pull-requests-limit: 10
     groups:
       minor-and-patch:
