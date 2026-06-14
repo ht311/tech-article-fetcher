@@ -1,0 +1,46 @@
+name: Dashboard CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  typescript:
+    name: TypeScript (biome + typecheck + tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: "11.6.0"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: "pnpm"
+          cache-dependency-path: dashboard/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: dashboard
+
+      - name: biome lint
+        run: pnpm lint
+        working-directory: dashboard
+
+      - name: typecheck
+        run: pnpm typecheck
+        working-directory: dashboard
+
+      - name: Run tests
+        run: pnpm test --silent
+        working-directory: dashboard
+
+      - name: Upload test results (if any)
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-test-logs
+          path: dashboard/test-results || dashboard/build/test-results || ''
