@@ -48,6 +48,8 @@ def _build_article_box(index: int, s: SelectedArticle) -> FlexBox:
     ]
 
     thumbnail_url = getattr(a, "thumbnail_url", None)
+    if thumbnail_url and len(thumbnail_url) > 2000:
+        thumbnail_url = None
     if thumbnail_url:
         contents.append(
             FlexImage(
@@ -100,7 +102,7 @@ def _build_article_box(index: int, s: SelectedArticle) -> FlexBox:
                     flex=1,
                 ),
                 FlexButton(
-                    action=URIAction(label="🔗 読む", uri=str(a.url)),
+                    action=URIAction(label="🔗 読む", uri=str(a.url)[:2000]),
                     style="link",
                     height="sm",
                     flex=1,
