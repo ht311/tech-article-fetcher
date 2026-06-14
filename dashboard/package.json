@@ -33,7 +33,7 @@
     "json-schema-to-typescript": "^15.0.4",
     "tailwindcss": "^4",
     "tsx": "^4.19.2",
-    "typescript": "^5",
+    "typescript": "^6",
     "vitest": "^4.1.4",
     "wrangler": "4.98.0"
   }
