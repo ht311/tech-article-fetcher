@@ -153,6 +153,8 @@ LINE Developers コンソール > Messaging API > Webhook URL に設定してく
 
 ### 5. ダッシュボードをデプロイ
 
+ダッシュボードの `devDependencies` に `wrangler` を含めているため、ローカルではパッケージインストール (pnpm install / npm ci) を行ってください。これにより GitHub Actions の wrangler-action が実行時に `pnpm add` を試行しないようになります。
+
 ```bash
 # dashboard/ を push すると GitHub Actions が自動デプロイ
 # 手動デプロイの場合:
