@@ -43,7 +43,7 @@ jobs:
           gh label create "chore"     --color "ededed" --description "雑務"         --repo "$REPO" --force
 
       - name: Apply path-based labels
-        uses: actions/labeler@v5
+        uses: actions/labeler@v6
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           configuration-path: .github/labeler.yml
