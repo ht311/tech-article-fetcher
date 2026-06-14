@@ -13,7 +13,7 @@ GitHub Actions をスケジューラーとして使うことで **サーバー�
 <summary>テキスト版アーキテクチャ</summary>
 
 ```
-GitHub Actions (cron: 毎日 JST 8:15)
+Cloudflare Cron Trigger (毎日 JST 8:15) → GitHub Actions (workflow_dispatch)
   ↓
 Python スクリプト (src/cli/main.py)
   ├── 記事収集（並列）
@@ -522,10 +522,12 @@ Gemini に渡す前に各カテゴリを `published_at` 降順ソートし、最
 
 ```yaml
 on:
-  schedule:
-    - cron: '15 23 * * *'  # JST 8:15 毎朝（混雑回避）
-  workflow_dispatch:         # 手動実行も可
+  workflow_dispatch: # Cloudflare Cron Trigger（23:15 UTC = JST 8:15）から起動 + 手動実行
 ```
+
+> **Note**: GitHub Actions の `schedule` は混雑時に 40〜70 分遅延するため、
+> Cloudflare Worker の Cron Trigger（`infrastructure/cloudflare/index.js`）が
+> 定時（JST 8:15）に `workflow_dispatch` API を叩いて起動する仕組みにしている。
 
 ### `weekly-conferences.yml` — カンファレンス名自動発見
 
