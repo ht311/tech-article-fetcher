@@ -5,6 +5,13 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: dashboard-ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   typescript:
     name: TypeScript (biome + typecheck + tests)
@@ -38,9 +45,3 @@ jobs:
       - name: Run tests
         run: pnpm test --silent
         working-directory: dashboard
-
-      - name: Upload test results (if any)
-        uses: actions/upload-artifact@v4
-        with:
-          name: dashboard-test-logs
-          path: dashboard/test-results || dashboard/build/test-results || ''

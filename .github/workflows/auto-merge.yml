@@ -1,32 +1,21 @@
 name: Auto-merge
 
 on:
-  workflow_run:
-    workflows: ["Static Analysis"]
-    types: [completed]
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
 
 permissions:
   contents: write
   pull-requests: write
 
 jobs:
-  automerge:
-    # Static Analysis が成功完了した PR のみマージ対象（Dependabot は dependabot-auto-merge.yml が処理）
-    if: >
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'pull_request'
+  enable-automerge:
+    # Dependabot は dependabot-auto-merge.yml が処理
+    if: ${{ !endsWith(github.event.pull_request.user.login, '[bot]') }}
     runs-on: ubuntu-latest
     steps:
-      - name: Merge PR
+      - name: Enable auto-merge
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-        run: |
-          PR_URL=$(gh pr list --repo "$REPO" --state open \
-            --json headRefOid,url,author \
-            --jq ".[] | select(.headRefOid == \"$HEAD_SHA\" and .author.login != \"dependabot[bot]\") | .url" \
-            | head -1)
-          if [ -n "$PR_URL" ]; then
-            gh pr merge --squash "$PR_URL"
-          fi
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge --auto --squash "$PR_URL"
