@@ -15,7 +15,7 @@
     "screenshots": "playwright install chromium && tsx scripts/screenshot.mts"
   },
   "dependencies": {
-    "@cloudflare/workers-types": "^4.20260418.1",
+    "@cloudflare/workers-types": "^4.20260608.1",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-tooltip": "^1.2.8",
     "next": "16.2.7",
