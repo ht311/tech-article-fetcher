@@ -7,12 +7,13 @@ on:
 
 permissions:
   pull-requests: write
+  contents: write
 
 jobs:
   rebase:
     runs-on: ubuntu-latest
     steps:
-      - name: Comment @dependabot rebase on open PRs
+      - name: Update branch of open Dependabot PRs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -23,7 +24,6 @@ jobs:
             --json number \
             -q '.[].number' |
           while read -r pr; do
-            gh pr comment "$pr" \
-              --repo "$GITHUB_REPOSITORY" \
-              --body "@dependabot rebase"
+            gh pr update-branch "$pr" \
+              --repo "$GITHUB_REPOSITORY"
           done
