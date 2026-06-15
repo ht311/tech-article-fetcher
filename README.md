@@ -603,6 +603,8 @@ PR ・`main` push 時に以下の3つのワークフローが並行実行され�
 
 auto-merge は `auto-merge.yml`（通常 PR）と `dependabot-auto-merge.yml`（Dependabot PR）が `gh pr merge --auto --squash` を呼び、GitHub が必須チェック全通過後に自動でマージする。
 
+`dependabot-rebase.yml` は `main` への push をトリガーに、オープン中の Dependabot PR すべてに `@dependabot rebase` コメントを投稿し、自動でリベースを促す。
+
 ### 必要な GitHub Secrets
 
 | Secret 名 | 用途 |

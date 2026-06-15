@@ -1,0 +1,29 @@
+name: Rebase Dependabot PRs
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  pull-requests: write
+
+jobs:
+  rebase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comment @dependabot rebase on open PRs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --author "app/dependabot" \
+            --state open \
+            --json number \
+            -q '.[].number' |
+          while read -r pr; do
+            gh pr comment "$pr" \
+              --repo "$GITHUB_REPOSITORY" \
+              --body "@dependabot rebase"
+          done
