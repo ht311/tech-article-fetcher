@@ -1,46 +1,45 @@
 import type { Metadata } from "next";
-import { Geist, Noto_Sans_JP } from "next/font/google";
-import Link from "next/link";
+import { Geist_Mono, Noto_Sans_JP, Newsreader } from "next/font/google";
+import { BottomTabBar } from "./components/BottomTabBar";
 import "./globals.css";
 
-const geist = Geist({ subsets: ["latin"] });
-const notoSansJP = Noto_Sans_JP({ subsets: ["latin"], weight: ["400", "500", "700"] });
+const newsreader = Newsreader({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  style: ["normal", "italic"],
+  variable: "--font-newsreader",
+  display: "swap",
+});
+
+const notoSansJP = Noto_Sans_JP({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-noto-sans-jp",
+});
+
+const geistMono = Geist_Mono({
+  subsets: ["latin"],
+  variable: "--font-geist-mono",
+});
 
 export const metadata: Metadata = {
-  title: "Tech Article Dashboard",
-  description: "tech-article-fetcher 管理ダッシュボード",
+  title: "Tech Dispatch",
+  description: "tech-article-fetcher ダッシュボード",
 };
-
-const NAV_LINKS = [
-  { href: "/", label: "ホーム" },
-  { href: "/articles/", label: "過去記事" },
-  { href: "/stats/", label: "統計" },
-  { href: "/settings/", label: "設定" },
-];
 
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="ja" className={`${geist.className} ${notoSansJP.className} h-full`}>
-      <body className="min-h-full flex flex-col bg-gray-50 text-gray-900">
-        <header className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 flex items-center gap-4 sm:gap-6 flex-wrap">
-          <span className="font-semibold text-sm">📰 Article Dashboard</span>
-          <nav className="flex gap-3 sm:gap-4 flex-wrap">
-            {NAV_LINKS.map(({ href, label }) => (
-              <Link
-                key={href}
-                href={href}
-                className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                {label}
-              </Link>
-            ))}
-          </nav>
-        </header>
-        <main className="flex-1 px-4 sm:px-6 py-4 sm:py-6 max-w-5xl mx-auto w-full">
+    <html
+      lang="ja"
+      className={`${newsreader.variable} ${notoSansJP.variable} ${geistMono.variable} h-full`}
+    >
+      <body className="h-dvh flex flex-col" style={{ background: "var(--color-press-bg)" }}>
+        <main className="flex-1 min-h-0 flex flex-col overflow-hidden">
           {children}
         </main>
+        <BottomTabBar />
       </body>
     </html>
   );
