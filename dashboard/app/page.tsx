@@ -31,7 +31,7 @@ export default function HomePage() {
 
   useEffect(() => {
     setRatings(getRatings());
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo" }).format(new Date());
     Promise.all([
       fetch("/api/stats").then((r) => r.json() as Promise<StatsData>),
       fetch(`/api/articles?from=${todayStr}&to=${todayStr}`).then((r) => r.json() as Promise<ArticlesData>),

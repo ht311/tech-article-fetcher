@@ -1,5 +1,6 @@
-from datetime import UTC, datetime
+from datetime import datetime
 from unittest.mock import MagicMock, patch
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -9,6 +10,8 @@ from src.services.notifier.line_notifier import (
     _build_category_flex_message,
     send_category_messages,
 )
+
+UTC = ZoneInfo("UTC")
 
 _DEFAULT_CATS = [
     CategoryDef(id="backend", name="バックエンド", keywords=["java"], enabled=True, order=0),
@@ -79,6 +82,17 @@ def test_build_category_flex_message_sends_all_received() -> None:
     selected = [_make_selected(f"Article {i}") for i in range(7)]
     msg = _build_category_flex_message("その他", selected, global_offset=0)
     assert "7 件" in msg.alt_text
+
+
+def test_build_category_flex_message_date_is_jst() -> None:
+    # 23:15 UTC on 2026-06-20 = 08:15 JST on 2026-06-21
+    from zoneinfo import ZoneInfo
+    fake_jst = datetime(2026, 6, 21, 8, 15, tzinfo=ZoneInfo("Asia/Tokyo"))
+    with patch("src.core.clock.datetime") as mock_dt:
+        mock_dt.now.return_value = fake_jst
+        selected = [_make_selected("Java 記事")]
+        msg = _build_category_flex_message("バックエンド", selected, global_offset=0)
+    assert "2026/06/21" in msg.alt_text
 
 
 # --- send_category_messages ---
