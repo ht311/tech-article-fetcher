@@ -81,6 +81,7 @@ tech-article-fetcher/
 │   │   ├── main.py      # メインスクリプト（日次）
 │   │   └── update_conferences.py  # カンファレンス発見ジョブ（週次）
 │   ├── core/            # コアロジック・共有モデル
+│   │   ├── clock.py     # JST 日付ユーティリティ（jst_today）
 │   │   ├── config.py    # 設定（RSS・カテゴリ定義）
 │   │   ├── models.py    # Pydantic データモデル
 │   │   └── runtime_config.py  # ランタイム設定

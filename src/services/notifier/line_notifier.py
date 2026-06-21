@@ -1,6 +1,5 @@
 import logging
 import os
-from datetime import datetime
 
 from linebot.v3.messaging import (
     ApiClient,
@@ -18,6 +17,7 @@ from linebot.v3.messaging import (
     URIAction,
 )
 
+from src.core.clock import jst_today
 from src.core.models import CategoryDef, SelectedArticle
 
 logger = logging.getLogger(__name__)
@@ -111,7 +111,7 @@ def _build_category_flex_message(
     selected: list[SelectedArticle],
     global_offset: int,
 ) -> FlexMessage:
-    today = datetime.now().strftime("%Y/%m/%d")
+    today = jst_today("%Y/%m/%d")
     header_text = f"🗂️ {cat_name} ({today})"
 
     body_contents: list[object] = [

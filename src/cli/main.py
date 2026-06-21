@@ -22,6 +22,7 @@ from datetime import UTC, datetime
 
 from dotenv import load_dotenv
 
+from src.core.clock import jst_today
 from src.core.config import (
     CONFERENCE_SEARCH_HOURS,
     ENABLE_PREFERENCE_RERANK,
@@ -249,7 +250,7 @@ async def main() -> None:
     await send_category_messages(selections, rc.category_defs)
     logger.info("LINE messages sent.")
 
-    today = datetime.now(UTC).strftime("%Y-%m-%d")
+    today = jst_today()
     await asyncio.gather(
         write_last_articles(selections, rc.category_defs),
         write_article_history(today, selections, rc.category_defs),

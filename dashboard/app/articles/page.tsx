@@ -11,14 +11,14 @@ interface ArticlesData {
   articles: Record<string, Article[]>;
 }
 
-function toISODate(d: Date) {
-  return d.toISOString().slice(0, 10);
+function toJSTDate(d: Date) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Tokyo" }).format(d);
 }
 
 export default function ArticlesPage() {
   const categories = useCategories();
-  const today = toISODate(new Date());
-  const thirtyDaysAgo = toISODate(new Date(Date.now() - 30 * 86400_000));
+  const today = toJSTDate(new Date());
+  const thirtyDaysAgo = toJSTDate(new Date(Date.now() - 30 * 86400_000));
 
   const [from, setFrom] = useState(thirtyDaysAgo);
   const [to, setTo] = useState(today);
