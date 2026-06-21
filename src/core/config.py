@@ -40,7 +40,7 @@ QIITA_TAGS: list[str] = [
     "TypeScript", "React", "Next.js",
     "AWS", "スクラム",
 ]
-QIITA_TAG_QUERY = "stocks:>10"   # タグ別検索の基本クエリ
+QIITA_TAG_QUERY = "stocks:>5"    # タグ別検索の基本クエリ（>10 は最新記事が拾えないため緩和）
 QIITA_QUERY = "stocks:>50"       # タグなし（人気記事全般）のクエリ
 QIITA_PER_PAGE = 10              # タグ別は件数を抑える（タグ数×10件）
 

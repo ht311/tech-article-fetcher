@@ -129,7 +129,7 @@ async def main() -> None:
     fetch_tasks = [
         fetch_all_rss(normal_sources, rc.article_fetch_hours),
         fetch_all_rss(important_sources, EXTENDED_FETCH_HOURS),
-        fetch_qiita(rc.sources, rc.article_fetch_hours),
+        fetch_qiita(rc.sources, EXTENDED_FETCH_HOURS),
         fetch_speakerdeck(rc.sources, rc.article_fetch_hours),
         fetch_conference_slides(conferences.conferences, CONFERENCE_SEARCH_HOURS),
     ]

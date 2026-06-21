@@ -6,11 +6,12 @@ from datetime import UTC, datetime, timedelta
 import feedparser
 import httpx
 
+from src.core.constants import BROWSER_USER_AGENT
 from src.core.models import Article, SourceDef
 
 logger = logging.getLogger(__name__)
 
-_HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; tech-article-fetcher/1.0)", "Accept": "*/*"}
+_HEADERS = {"User-Agent": BROWSER_USER_AGENT, "Accept": "*/*"}
 
 
 def _parse_published(entry: feedparser.FeedParserDict) -> datetime | None:

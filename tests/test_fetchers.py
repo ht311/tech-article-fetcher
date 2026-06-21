@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from src.core.models import SourceDef
+from src.services.fetchers.conference_fetcher import _parse_docswell_html
 from src.services.fetchers.qiita_fetcher import fetch_qiita
 from src.services.fetchers.rss_fetcher import _entry_to_article, _parse_published, fetch_all_rss
 
@@ -157,6 +158,37 @@ async def test_fetch_qiita_body_none_parses_successfully() -> None:
         articles = await fetch_qiita([_qiita_source("Java")], hours=24)
         assert len(articles) == 1
         assert articles[0].summary == ""
+
+
+# --- conference_fetcher (_parse_docswell_html) ---
+
+_DOCSWELL_FIXTURE = (
+    "<html><body>"
+    '<a href="https://www.docswell.com/s/user1/ABCDE-talk" title="RubyKaigi Talk">text</a>'
+    '<a href="https://www.docswell.com/s/user2/FGHIJ-slide" title="Another Slide">x</a>'
+    '<a href="https://www.docswell.com/s/user1/ABCDE-talk" title="RubyKaigi Talk">dup</a>'
+    '<a href="https://www.docswell.com/latest">not a slide</a>'
+    "</body></html>"
+)
+
+
+def test_parse_docswell_html_extracts_slides() -> None:
+    articles = _parse_docswell_html(_DOCSWELL_FIXTURE, "Docswell:RubyKaigi")
+    assert len(articles) == 2
+    assert articles[0].title == "RubyKaigi Talk"
+    assert str(articles[0].url) == "https://www.docswell.com/s/user1/ABCDE-talk"
+    assert articles[0].is_important is True
+    assert articles[0].published_at is None
+
+
+def test_parse_docswell_html_deduplicates() -> None:
+    articles = _parse_docswell_html(_DOCSWELL_FIXTURE, "Docswell:RubyKaigi")
+    urls = [str(a.url) for a in articles]
+    assert len(urls) == len(set(urls))
+
+
+def test_parse_docswell_html_empty_html() -> None:
+    assert _parse_docswell_html("<html></html>", "Docswell:X") == []
 
 
 @pytest.mark.asyncio

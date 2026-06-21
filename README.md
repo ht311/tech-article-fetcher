@@ -242,7 +242,7 @@ mypy src/
 
 | ソース | 方式 | フィルタ条件 |
 |---|---|---|
-| Qiita | REST API | `stocks:>50`（一般）、`stocks:>10 tag:X`（タグ別 8 件並列） |
+| Qiita | REST API | `stocks:>50`（一般）、`stocks:>5 tag:X`（タグ別 8 件並列・168h窓） |
 | dev.to | REST API | 過去 7 日間のトップ 20 件 |
 | Hacker News | Firebase REST API | トップ 30 件中、スコア ≥ 100 かつ URL あり |
 | Reddit | JSON API | 7 サブレディット hot posts、スコア ≥ 500、セルフポストを除外 |
