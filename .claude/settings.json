@@ -106,10 +106,9 @@
       "Bash(gh api --method PATCH:*)",
       "Bash(gh api --method DELETE:*)"
     ],
-    "defaultMode": "bypassPermissions"
+    "defaultMode": "auto"
   },
   "model": "opusplan",
-  "skipDangerousModePermissionPrompt": true,
   "statusLine": {
     "type": "command",
     "command": "sh .claude/statusline-command.sh"
