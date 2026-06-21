@@ -1,26 +1,31 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@theme {
+  /* ── Press surface colors ── */
+  --color-press-bg:      #f8f6f1;
+  --color-press-ink:     #1c1a17;
+  --color-press-muted:   #6b6256;
+  --color-press-subtle:  #9a9183;
+  --color-press-border:  #e3ddd1;
+  --color-press-surface: #ffffff;
+  --color-press-accent:  #b1402e;
+  --color-press-good:    #0a7d5a;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  /* ── Category accents ── */
+  --color-cat-backend:    #1c4fd8;
+  --color-cat-frontend:   #7a2fbd;
+  --color-cat-aws:        #c2410c;
+  --color-cat-management: #0a7d5a;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* ── Fonts ── */
+  --font-serif: var(--font-newsreader), Georgia, serif;
+  --font-sans:  var(--font-noto-sans-jp), "Noto Sans JP", system-ui, sans-serif;
+  --font-mono:  var(--font-geist-mono), "Geist Mono", "SF Mono", Menlo, monospace;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-press-bg);
+  color: var(--color-press-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
 }
