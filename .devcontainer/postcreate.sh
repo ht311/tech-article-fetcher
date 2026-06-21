@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+cd "$(dirname "$0")/.."
+
 pip install -e '.[dev]'
 npm install -g @anthropic-ai/claude-code
 npm install -g pnpm@11.6.0
