@@ -13,14 +13,15 @@ from urllib.parse import quote_plus
 import httpx
 from bs4 import BeautifulSoup
 
+from src.core.constants import BROWSER_USER_AGENT
 from src.core.models import Article, Conference
 
 logger = logging.getLogger(__name__)
 
-_HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; tech-article-fetcher/1.0)", "Accept": "*/*"}
+_HEADERS = {"User-Agent": BROWSER_USER_AGENT, "Accept": "*/*"}
 
 _SD_SEARCH_URL = "https://speakerdeck.com/search?q={query}"
-_DW_SEARCH_URL = "https://www.docswell.com/search?key={query}"
+_DW_SEARCH_URL = "https://www.docswell.com/search?q={query}"
 
 # ISO8601 / "N days ago" などを正規化するための簡易パターン
 _ISO_DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
@@ -79,39 +80,34 @@ def _parse_speakerdeck_html(html: str, source_label: str) -> list[Article]:
 
 
 def _parse_docswell_html(html: str, source_label: str) -> list[Article]:
-    """Docswell 検索結果 HTML からスライドを抽出する。"""
+    """Docswell 検索結果 HTML からスライドを抽出する。
+
+    スライドリンクは /s/{user}/{slug} 形式（絶対 URL）で埋め込まれている。
+    <time> タグが無いため published_at は None のまま（cutoff フィルタをパスする）。
+    """
     articles = []
     try:
         soup = BeautifulSoup(html, "html.parser")
-        # 各スライドカード: <div class="slide-card"> や <article> など
-        cards = soup.select("div.slide-card, article.slide-card, li.slide-item")
-        if not cards:
-            cards = soup.select("div[class*='slide']")
-        for card in cards:
-            a_tag = card.find("a", href=re.compile(r"/slides/"))
-            if not a_tag:
-                continue
+        seen: set[str] = set()
+        for a_tag in soup.find_all("a", href=re.compile(r"docswell\.com/s/")):
             raw_href = a_tag.get("href", "")
-            href = str(raw_href) if raw_href else ""
-            if not href.startswith("http"):
-                href = f"https://www.docswell.com{href}"
-            title_tag = card.find(["h2", "h3", "h4"]) or a_tag
-            title = title_tag.get_text(strip=True)[:120] if title_tag else ""
+            href = str(raw_href).split("?")[0]  # クエリパラメータを除去
+            if href in seen:
+                continue
+            seen.add(href)
+
+            # title 属性 → アンカーテキスト の順で取得
+            title = str(a_tag.get("title", "")).strip() or a_tag.get_text(strip=True)
+            title = title[:120]
             if not title:
                 continue
-
-            time_tag = card.find("time")
-            published_at = None
-            if time_tag:
-                raw_dt = time_tag.get("datetime", "") or time_tag.get_text(strip=True)
-                published_at = _parse_iso_date(str(raw_dt))
 
             try:
                 articles.append(Article(
                     title=title,
                     url=href,  # type: ignore[arg-type]
                     source=source_label,
-                    published_at=published_at,
+                    published_at=None,
                     is_important=True,
                 ))
             except Exception:

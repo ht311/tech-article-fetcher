@@ -216,10 +216,8 @@ SPEAKERDECK_HTML = """
 
 DOCSWELL_HTML = """
 <html><body>
-<div class="slide-card">
-  <h3><a href="/slides/jjug-ccc-2026">JJUG CCC 2026 まとめ</a></h3>
-  <time datetime="2026-06-05T00:00:00Z">2026-06-05</time>
-</div>
+<a href="https://www.docswell.com/s/speaker1/ABCDE-jjug-ccc-2026"
+   title="JJUG CCC 2026 まとめ">JJUG CCC 2026 まとめ</a>
 </body></html>
 """
 

@@ -14,6 +14,7 @@ import feedparser
 import httpx
 
 from src.core.config import PREFERRED_TOPICS
+from src.core.constants import BROWSER_USER_AGENT
 from src.core.models import Article, SourceDef
 
 logger = logging.getLogger(__name__)
@@ -21,7 +22,7 @@ logger = logging.getLogger(__name__)
 SPEAKERDECK_CATEGORY_ATOM = "https://speakerdeck.com/c/{category}.atom"
 
 _CJK_RE = re.compile(r"[\u3000-\u9fff\uff00-\uffef]")
-_HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; tech-article-fetcher/1.0)", "Accept": "*/*"}
+_HEADERS = {"User-Agent": BROWSER_USER_AGENT, "Accept": "*/*"}
 _PREFERRED_LOWER = [t.lower() for t in PREFERRED_TOPICS]
 
 
