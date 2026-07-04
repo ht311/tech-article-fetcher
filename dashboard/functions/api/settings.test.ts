@@ -26,6 +26,18 @@ describe("validateSettings", () => {
     expect(validateSettings({ gemini_max_input_per_category: 51 })).toMatch(/gemini_max_input_per_category/);
   });
 
+  it("accepts semantic_dedup_threshold in range", () => {
+    expect(validateSettings({ semantic_dedup_threshold: 0.5 })).toBeNull();
+    expect(validateSettings({ semantic_dedup_threshold: 1.0 })).toBeNull();
+    expect(validateSettings({ semantic_dedup_threshold: null })).toBeNull();
+  });
+
+  it("rejects semantic_dedup_threshold out of range", () => {
+    expect(validateSettings({ semantic_dedup_threshold: 0.3 })).toMatch(/semantic_dedup_threshold/);
+    expect(validateSettings({ semantic_dedup_threshold: 1.2 })).toMatch(/semantic_dedup_threshold/);
+    expect(validateSettings({ semantic_dedup_threshold: "high" as never })).toMatch(/semantic_dedup_threshold/);
+  });
+
   it("rejects duplicate source names", () => {
     const sources = [
       { name: "TestSource", type: "rss" as const, url: "https://example.com/feed", enabled: true },

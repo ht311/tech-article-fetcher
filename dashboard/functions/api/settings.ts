@@ -33,6 +33,16 @@ export function validateSettings(body: Partial<UserSettings>): ValidationError |
     }
   }
 
+  if (body.semantic_dedup_threshold !== undefined && body.semantic_dedup_threshold !== null) {
+    if (
+      typeof body.semantic_dedup_threshold !== "number" ||
+      body.semantic_dedup_threshold < 0.5 ||
+      body.semantic_dedup_threshold > 1.0
+    ) {
+      return "semantic_dedup_threshold must be 0.5-1.0";
+    }
+  }
+
   if (body.sources !== undefined) {
     const names = new Set<string>();
     for (const src of body.sources as SourceDef[]) {

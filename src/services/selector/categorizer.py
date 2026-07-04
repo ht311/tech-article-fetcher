@@ -1,8 +1,27 @@
+import re
 from datetime import UTC, datetime
+from functools import lru_cache
 
 from src.core.models import Article, CategoryDef
 
 _EPOCH = datetime.min.replace(tzinfo=UTC)
+
+
+@lru_cache(maxsize=1024)
+def _ascii_pattern(kw: str) -> re.Pattern[str]:
+    # \b は日本語文字も \w 扱いのため「lambdaで作る」にマッチしなくなる。
+    # 前後が ASCII 英数字でないことだけを境界条件にする。
+    return re.compile(rf"(?<![a-z0-9]){re.escape(kw)}(?![a-z0-9])")
+
+
+def _kw_match(kw: str, text: str) -> bool:
+    """ASCII キーワードは英数字境界付きでマッチさせる（"specs" の "ecs" 等の誤爆防止）。
+    日本語を含むキーワードは従来通り部分一致。text は小文字化済み前提。
+    """
+    kw = kw.lower()
+    if kw.isascii():
+        return _ascii_pattern(kw).search(text) is not None
+    return kw in text
 
 
 def classify(article: Article, category_defs: list[CategoryDef]) -> str:
@@ -13,7 +32,7 @@ def classify(article: Article, category_defs: list[CategoryDef]) -> str:
     for cat in category_defs:
         if cat.id == "others":
             continue
-        if any(kw in text for kw in cat.keywords):
+        if any(_kw_match(kw, text) for kw in cat.keywords):
             return cat.id
     return "others"
 

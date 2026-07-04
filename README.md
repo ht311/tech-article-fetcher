@@ -25,7 +25,7 @@ Python スクリプト (src/cli/main.py)
   ├── 重複排除（URL ベース）→ 送信済み URL（直近 7 日）を除外★
   ├── Cloudflare KV からユーザー嗜好・配信設定・カンファレンスリストを並列読み込み
   ├── Gemini Embedding API (gemini-embedding-001) で記事タイトル＋嗜好履歴をベクトル化★
-  │   ├── 意味的重複排除（コサイン類似度 ≥ 0.88 の同一トピック記事をクラスタ化・1件に集約）★
+  │   ├── 意味的重複排除（コサイン類似度 ≥ しきい値の同一トピック記事をクラスタ化・1件に集約。既定 0.88・KV 設定で変更可）★
   │   └── 嗜好ベクトル再ランク（good/bad重心との類似度スコアで Gemini 入力順を変更）★
   │       ※ Embedding API 失敗時は URL 重複排除 + published_at 順にフォールバック
   ├── キーワードマッチングで 5 カテゴリに分類
@@ -295,6 +295,9 @@ class UserSettings(BaseModel):
     include_keywords: list[str] = [] # Gemini プロンプトに追加して優先
     sources: list[SourceDef] | None = None
     category_defs: list[CategoryDef] | None = None
+    article_fetch_hours: int | None = None            # None → config.py デフォルト（24）
+    gemini_max_input_per_category: int | None = None  # None → config.py デフォルト（25）
+    semantic_dedup_threshold: float | None = None     # 0.5〜1.0。None → config.py デフォルト（0.88）
 
 class UserPreferences(BaseModel):
     history: list[ArticleFeedback] = []
@@ -309,13 +312,19 @@ class UserPreferences(BaseModel):
 キーワードマッチング（タイトル + サマリーに対してケースインセンシティブ）で 5 カテゴリに分類。  
 マッチ優先順位: backend → frontend → aws → management → others。
 
+ASCII キーワードは前後に英数字が続かない位置でのみマッチする（`_kw_match`）。
+"specs" が `ecs` に、"javascript" が `java` に誤爆せず、かつ「Lambdaで作る」のような
+日本語直結タイトルにはマッチする。日本語キーワードは従来通り部分一致。
+
 | カテゴリ ID | 表示名 | 主なキーワード |
 |---|---|---|
-| `backend` | バックエンド | java, spring, kotlin, python, go, rust, postgresql, mysql, redis, api, microservice, ... |
-| `frontend` | フロントエンド | typescript, javascript, react, vue, angular, nextjs, css, html, web, ... |
-| `aws` | AWS・クラウド | aws, amazon, ec2, s3, lambda, cloud, kubernetes, docker, terraform, ... |
-| `management` | 開発マネジメント | em, engineering manager, scrum, agile, 1on1, チーム, マネジメント, ... |
+| `backend` | バックエンド | java, jdk, jvm, kotlin, spring, quarkus, maven, gradle, postgresql, mysql, sql, grpc, kafka, redis, golang, rust, マイクロサービス, ... |
+| `frontend` | フロントエンド | react, next.js, typescript, javascript, vue, nuxt, svelte, angular, css, tailwind, vite, フロントエンド |
+| `aws` | AWS | aws, ec2, s3, ecs, eks, fargate, lambda, dynamodb, rds, aurora, cloudfront, sqs, kinesis, eventbridge, bedrock, cdk, ... |
+| `management` | マネジメント/組織 | engineering manager, 1on1, 組織, リーダー, マネジメント, スクラム, アジャイル, テックリード, okr, 心理的安全性, ふりかえり, ... |
 | `others` | その他 | （上記に非該当） |
+
+キーワードの正は `src/core/config.py` の `CATEGORIES`。KV の `settings.category_defs` が保存済みの場合はそちらが優先される。
 
 Gemini に渡す前に各カテゴリを最大 `GEMINI_MAX_INPUT_PER_CATEGORY`（25件）に切り詰める。  
 ソート順: 嗜好ベクトル再ランクが有効なときは嗜好スコア降順 → `published_at` 降順。無効時は `published_at` 降順のみ。
@@ -330,7 +339,7 @@ Gemini 選定の前処理として、記事タイトルと嗜好履歴を `gemin
 
 URL が異なっても同じトピックを扱う記事（例: 公式ブログ + Zenn 解説 + はてブ）を排除する。
 
-- 全記事タイトルを embedding し、コサイン類似度が `SEMANTIC_DEDUP_THRESHOLD`（0.88）以上の記事群を同一クラスタとみなす
+- 全記事タイトルを embedding し、コサイン類似度が `SEMANTIC_DEDUP_THRESHOLD`（既定 0.88、KV の `settings.semantic_dedup_threshold` で 0.5〜1.0 に変更可）以上の記事群を同一クラスタとみなす
 - 各クラスタから 1 件だけ残す。残す優先度: `is_important` > `published_at` 新しい順
 
 ### 嗜好ベクトル再ランク（`ENABLE_PREFERENCE_RERANK = True`）
@@ -355,7 +364,7 @@ good/bad フィードバック履歴から「好みの方向」を表すベク�
 | 設定 | 値 |
 |---|---|
 | プライマリモデル | `gemini-2.5-flash` |
-| フォールバックモデル | `gemini-2.5-flash` |
+| フォールバックモデル | `gemini-2.5-flash-lite`（無料枠あり・flash より高 RPD。日次クォータ枯渇時に切り替え） |
 | Embedding モデル | `gemini-embedding-001`（意味的 dedup・嗜好再ランク用） |
 | カテゴリ別最大選定数 | 5 件（`SELECT_MAX_PER_CATEGORY`） |
 | 最大リトライ数 | 5 回（指数バックオフ、ベース 2 秒） |
@@ -365,7 +374,7 @@ good/bad フィードバック履歴から「好みの方向」を表すベク�
 5 カテゴリを `asyncio.gather()` で並列実行。各カテゴリに対して:
 1. カテゴリ専用のシステムプロンプトを構築（選定観点・ユーザー嗜好サマリー・優先キーワードを含む）
 2. 候補記事をナンバリングしたテキストとして渡す
-3. Gemini が `[{"index": N, "reason": "理由", "summary": "要点"}]` 形式の JSON を返す
+3. Gemini が `[{"index": N, "reason": "理由", "summary": "要点"}]` 形式の JSON を返す（`response_mime_type="application/json"` を指定し JSON 逸脱を防止）
 4. インデックスで元記事を参照し `SelectedArticle`（`reason` + `summary`）に変換
 
 選定件数は `UserSettings.max_per_category`（1〜5）で動的に変更される。
@@ -631,7 +640,7 @@ Cloudflare Pages でホストされる管理 UI。Next.js 静的書き出し + P
 | `/` | ホーム — 今日の配信記事・高評価ソース Top3 |
 | `/articles/` | 過去記事 — 日付フィルタで過去90日の配信を閲覧 |
 | `/stats/` | 統計 — 週次フィードバック推移・ソース別評価・カテゴリ分布（Recharts） |
-| `/settings/` | 設定 — カテゴリ/ソース ON/OFF・件数・除外/優先キーワードを編集。各操作の影響をツールチップ・プレビュー文・確認ダイアログで事前に提示。未保存変更インジケータと離脱警告付き |
+| `/settings/` | 設定 — カテゴリ/ソース ON/OFF・件数・除外/優先キーワード・重複判定しきい値（意味的 dedup のコサイン類似度、0.5〜1.0 スライダー）を編集。各操作の影響をツールチップ・プレビュー文・確認ダイアログで事前に提示。未保存変更インジケータと離脱警告付き |
 
 ### API（Pages Functions）
 
@@ -671,6 +680,7 @@ Cloudflare Pages でホストされる管理 UI。Next.js 静的書き出し + P
   ],
   "article_fetch_hours": 24,
   "gemini_max_input_per_category": 25,
+  "semantic_dedup_threshold": 0.88,
   "schema_version": 2
 }
 ```

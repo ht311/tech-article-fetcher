@@ -27,6 +27,8 @@ function catColor(id: string) {
 }
 
 const LS_DELIVERY_KEY = "press_delivery_time";
+// src/core/config.py の SEMANTIC_DEDUP_THRESHOLD と同値（未設定時の表示用）
+const DEFAULT_DEDUP_THRESHOLD = 0.88;
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -71,6 +73,7 @@ export default function SettingsPage() {
   const [deliveryTime, setDeliveryTime] = useState("08:00");
   const [stats, setStats] = useState<StatsData | null>(null);
   const [saving, setSaving] = useState(false);
+  const [threshold, setThreshold] = useState(DEFAULT_DEDUP_THRESHOLD);
 
   useEffect(() => {
     const saved = localStorage.getItem(LS_DELIVERY_KEY);
@@ -78,7 +81,10 @@ export default function SettingsPage() {
 
     fetch("/api/settings")
       .then((r) => r.json() as Promise<UserSettings>)
-      .then(setSettings)
+      .then((s) => {
+        setSettings(s);
+        setThreshold(s.semantic_dedup_threshold ?? DEFAULT_DEDUP_THRESHOLD);
+      })
       .catch(() => {});
 
     fetch("/api/stats")
@@ -97,6 +103,19 @@ export default function SettingsPage() {
       c.id === id ? { ...c, enabled: !c.enabled } : c
     );
     const next = { ...settings, category_defs: updated };
+    setSettings(next);
+    setSaving(true);
+    await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(next),
+    }).catch(() => {});
+    setSaving(false);
+  }
+
+  async function saveThreshold(v: number) {
+    if (!settings) return;
+    const next = { ...settings, semantic_dedup_threshold: v };
     setSettings(next);
     setSaving(true);
     await fetch("/api/settings", {
@@ -162,6 +181,36 @@ export default function SettingsPage() {
               <Toggle on={cat.enabled ?? true} onToggle={() => toggleCategory(cat.id)} />
             </div>
           ))}
+        </div>
+
+        {/* Selection tuning */}
+        <div style={{ padding: "16px 22px 18px", borderBottom: `1px solid ${C.line}` }}>
+          <SectionLabel>選定チューニング</SectionLabel>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 3 }}>
+            <div style={{ fontFamily: SERIF, fontSize: 16.5, color: C.ink }}>重複判定しきい値</div>
+            <div style={{
+              fontFamily: MONO, fontSize: 14, color: C.ink,
+              border: `1px solid ${C.line}`, background: C.surface,
+              borderRadius: 4, padding: "4px 10px", flexShrink: 0,
+            }}>
+              {threshold.toFixed(2)}
+            </div>
+          </div>
+          <div style={{ fontFamily: SANS, fontSize: 11.5, color: C.sub, marginBottom: 12 }}>
+            意味的に同一トピックとみなすコサイン類似度。高いほど重複判定が厳しくなる（1.0 で実質無効）
+          </div>
+          <input
+            type="range"
+            min={0.5}
+            max={1}
+            step={0.01}
+            value={threshold}
+            disabled={!settings}
+            onChange={(e) => setThreshold(Number(e.target.value))}
+            onPointerUp={(e) => saveThreshold(Number(e.currentTarget.value))}
+            onBlur={(e) => saveThreshold(Number(e.currentTarget.value))}
+            style={{ width: "100%", accentColor: C.accent, cursor: "pointer" }}
+          />
         </div>
 
         {/* Feedback */}

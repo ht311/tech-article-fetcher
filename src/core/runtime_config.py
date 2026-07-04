@@ -10,6 +10,7 @@ class RuntimeConfig(BaseModel):
     max_per_category: int
     article_fetch_hours: int
     gemini_max_input_per_category: int
+    semantic_dedup_threshold: float
     exclude_keywords: list[str]
     include_keywords: list[str]
 
@@ -64,6 +65,11 @@ def build_runtime_config(settings: UserSettings) -> RuntimeConfig:
             settings.gemini_max_input_per_category
             if settings.gemini_max_input_per_category is not None
             else config.GEMINI_MAX_INPUT_PER_CATEGORY
+        ),
+        semantic_dedup_threshold=(
+            settings.semantic_dedup_threshold
+            if settings.semantic_dedup_threshold is not None
+            else config.SEMANTIC_DEDUP_THRESHOLD
         ),
         exclude_keywords=settings.exclude_keywords,
         include_keywords=settings.include_keywords,

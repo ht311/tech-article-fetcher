@@ -61,6 +61,17 @@ def test_gemini_max_input_from_settings() -> None:
     assert rc.gemini_max_input_per_category == 10
 
 
+# semantic_dedup_threshold（plan-18）
+def test_semantic_dedup_threshold_default() -> None:
+    rc = build_runtime_config(UserSettings())
+    assert rc.semantic_dedup_threshold == config.SEMANTIC_DEDUP_THRESHOLD
+
+
+def test_semantic_dedup_threshold_from_settings() -> None:
+    rc = build_runtime_config(UserSettings(semantic_dedup_threshold=0.75))
+    assert rc.semantic_dedup_threshold == 0.75
+
+
 # category_defs sorted by order
 def test_category_defs_sorted_by_order() -> None:
     settings = UserSettings(

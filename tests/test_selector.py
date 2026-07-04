@@ -3,6 +3,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from src.core.config import (
+    GEMINI_FALLBACK_MODEL,
+    GEMINI_MAX_RETRIES,
+    GEMINI_MODEL,
+    default_category_defs,
+)
 from src.core.models import Article, CategoryDef
 from src.services.selector.categorizer import bucket_articles, classify
 from src.services.selector.gemini_selector import deduplicate, select_articles_by_category
@@ -110,6 +116,57 @@ def test_classify_others() -> None:
 def test_classify_uses_summary_when_title_has_no_keyword() -> None:
     a = _make_article(title="開発雑記", summary="spring boot でAPIを作った")
     assert classify(a, _DEFAULT_CATS) == "backend"
+
+
+# --- classify: 境界マッチ + config デフォルトキーワード（plan-18） ---
+
+def _config_cats() -> list[CategoryDef]:
+    """config.py のデフォルトカテゴリ定義（キーワード拡充の検証用）。"""
+    return [CategoryDef.model_validate(c) for c in default_category_defs()]
+
+
+def test_classify_no_false_positive_short_ascii() -> None:
+    """短い略語キーワードが英単語の一部に誤爆しない（ecs/rds/rust）。"""
+    cats = _config_cats()
+    assert classify(_make_article(title="Writing better specs", summary=""), cats) == "others"
+    assert classify(_make_article(title="5000 words essay", summary=""), cats) == "others"
+    assert classify(_make_article(title="Zero Trust Architecture", summary=""), cats) == "others"
+
+
+def test_classify_ascii_keyword_adjacent_to_japanese() -> None:
+    """空白なしで日本語に直結する ASCII キーワードもマッチする。"""
+    a = _make_article(title="Lambdaで作るサーバーレスAPI", summary="")
+    assert classify(a, _config_cats()) == "aws"
+
+
+def test_classify_aws_services() -> None:
+    cats = _config_cats()
+    assert classify(_make_article(title="DynamoDB のインデックス設計", summary=""), cats) == "aws"
+    assert classify(_make_article(title="ECS Fargate 移行のポイント", summary=""), cats) == "aws"
+
+
+def test_classify_frontend_expanded() -> None:
+    cats = _config_cats()
+    assert classify(_make_article(title="Vue 3 の Composition API", summary=""), cats) == "frontend"
+    assert classify(_make_article(title="CSS Grid レイアウト実践", summary=""), cats) == "frontend"
+
+
+def test_classify_javascript_no_longer_matches_java() -> None:
+    """javascript が backend の "java" に誤爆せず frontend に分類される。"""
+    a = _make_article(title="JavaScript の非同期処理", summary="")
+    assert classify(a, _config_cats()) == "frontend"
+
+
+def test_classify_management_expanded() -> None:
+    cats = _config_cats()
+    assert classify(_make_article(title="スクラムイベントの改善", summary=""), cats) == "management"
+    assert classify(_make_article(title="テックリードの役割とは", summary=""), cats) == "management"
+
+
+def test_classify_japanese_keywords_still_substring() -> None:
+    """日本語キーワードは従来通り部分一致で動く。"""
+    a = _make_article(title="組織づくりの話", summary="")
+    assert classify(a, _config_cats()) == "management"
 
 
 # --- bucket_articles ---
@@ -268,3 +325,60 @@ async def test_select_articles_by_category_empty_on_gemini_failure() -> None:
     assert len(selections["backend"]) == 1
     assert selections["backend"][0].article == articles[0]
     assert selections["backend"][0].reason == "自動選定"
+
+
+# --- フォールバックモデル（plan-18） ---
+
+def test_fallback_model_differs_from_primary() -> None:
+    """フォールバックがプライマリと同一だとクォータ枯渇時の劣化パスが no-op になる。"""
+    assert GEMINI_MODEL != GEMINI_FALLBACK_MODEL
+
+
+@pytest.mark.asyncio
+async def test_daily_quota_switches_to_fallback_model() -> None:
+    """日次クォータ枯渇（429 + PerDay）でプライマリを即中断しフォールバックへ切り替える。"""
+    articles = [_make_article("https://example.com/0", title="Java 記事")]
+    buckets = {"backend": articles, "frontend": [], "aws": [], "management": [], "others": []}
+
+    mock_response = MagicMock()
+    mock_response.text = '[{"index": 0, "reason": "理由", "summary": "要約"}]'
+    mock_client = MagicMock()
+    mock_client.models.generate_content.side_effect = [
+        Exception(
+            "429 RESOURCE_EXHAUSTED: Quota exceeded for metric "
+            "GenerateRequestsPerDayPerProjectPerModel"
+        ),
+        mock_response,
+    ]
+
+    with (
+        patch.dict("os.environ", {"GEMINI_API_KEY": "test-key"}),
+        patch("src.services.selector.gemini_selector.genai.Client", return_value=mock_client),
+        patch("src.services.selector.gemini_selector.asyncio.sleep", new_callable=AsyncMock),
+    ):
+        selections = await select_articles_by_category(buckets, _DEFAULT_CATS)
+
+    calls = mock_client.models.generate_content.call_args_list
+    assert len(calls) == 2  # プライマリ1回 + フォールバック1回（リトライを浪費しない）
+    assert calls[1].kwargs["model"] == GEMINI_FALLBACK_MODEL
+    assert selections["backend"][0].summary == "要約"
+
+
+@pytest.mark.asyncio
+async def test_model_loop_skips_duplicate_model() -> None:
+    """フォールバックがプライマリと同一値に退行しても同じモデルを2周しない。"""
+    articles = [_make_article("https://example.com/0", title="Java 記事")]
+    buckets = {"backend": articles, "frontend": [], "aws": [], "management": [], "others": []}
+
+    mock_client = MagicMock()
+    mock_client.models.generate_content.side_effect = Exception("API error")
+
+    with (
+        patch.dict("os.environ", {"GEMINI_API_KEY": "test-key"}),
+        patch("src.services.selector.gemini_selector.genai.Client", return_value=mock_client),
+        patch("src.services.selector.gemini_selector.asyncio.sleep", new_callable=AsyncMock),
+        patch("src.services.selector.gemini_selector.GEMINI_FALLBACK_MODEL", GEMINI_MODEL),
+    ):
+        await select_articles_by_category(buckets, _DEFAULT_CATS)
+
+    assert mock_client.models.generate_content.call_count == GEMINI_MAX_RETRIES
