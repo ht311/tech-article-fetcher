@@ -46,8 +46,8 @@ QIITA_PER_PAGE = 10              # タグ別は件数を抑える（タグ数×1
 
 # 使用する Gemini モデル（精度優先・無料枠あり）
 GEMINI_MODEL = "gemini-2.5-flash"
-# 日次クォータ枯渇時のフォールバックモデル（2.5-flash のみ無料枠あり）
-GEMINI_FALLBACK_MODEL = "gemini-2.5-flash"
+# 日次クォータ枯渇時のフォールバックモデル（無料枠あり・flash より RPD 上限が大きい軽量版）
+GEMINI_FALLBACK_MODEL = "gemini-2.5-flash-lite"
 
 # 直近何時間の記事を対象にするか
 ARTICLE_FETCH_HOURS = 24
@@ -61,32 +61,59 @@ MAX_PINNED_PER_CATEGORY = 2
 SENT_HISTORY_DEDUP_DAYS = 7
 
 # 大カテゴリ定義（id 順でプロンプト・LINE 送信順序が決まる）
+# ASCII キーワードは前後に英数字が続かない位置でのみマッチする（categorizer._kw_match）。
+# 短い略語（ecs/rds 等）を追加しても "specs"/"words" に誤爆しない前提のリスト。
 CATEGORIES: list[dict[str, Any]] = [
     {
         "id": "backend",
         "name": "バックエンド",
         "keywords": [
-            "java", "jdk", "openjdk",
+            "java", "jdk", "openjdk", "jvm", "graalvm",
             "spring", "springboot", "spring boot",
-            "postgres", "postgresql",
+            "kotlin", "quarkus", "hibernate", "jpa", "jakarta",
+            "maven", "gradle",
+            "postgres", "postgresql", "mysql", "sql",
+            "grpc", "kafka", "redis",
+            # "go" 単体は境界マッチでも誤爆過多のため golang のみ
+            "golang", "rust",
+            "マイクロサービス", "バックエンド",
         ],
     },
     {
         "id": "frontend",
         "name": "フロントエンド",
-        "keywords": ["react", "next.js", "nextjs", "typescript"],
+        "keywords": [
+            "react", "next.js", "nextjs", "typescript", "javascript",
+            "vue", "nuxt", "svelte", "angular",
+            "css", "tailwind", "vite",
+            "フロントエンド",
+        ],
     },
     {
         "id": "aws",
         "name": "AWS",
-        "keywords": ["aws", "amazon web services"],
+        # iam は Azure/GCP 記事にも頻出、sns は日本語でソーシャルメディアの意味が支配的なため除外
+        "keywords": [
+            "aws", "amazon web services",
+            "ec2", "s3", "ecs", "eks", "fargate", "lambda",
+            "dynamodb", "rds", "aurora",
+            "cloudfront", "cloudformation", "cloudwatch",
+            "sqs", "kinesis", "eventbridge", "step functions",
+            "bedrock", "sagemaker", "cdk",
+        ],
     },
     {
         "id": "management",
         "name": "マネジメント/組織",
+        # 「採用」「評価」単体は技術選定・性能評価の文脈で誤爆するため除外
         "keywords": [
             "engineering manager", "エンジニアリングマネージャー",
             "1on1", "組織", "リーダー", "チームビルディング", "マネジメント",
+            "scrum", "スクラム", "agile", "アジャイル",
+            "テックリード", "tech lead", "okr",
+            "心理的安全性", "psychological safety",
+            "ふりかえり", "レトロスペクティブ", "retrospective",
+            "オンボーディング", "人事評価",
         ],
     },
     {"id": "others", "name": "その他", "keywords": []},
@@ -103,7 +130,8 @@ GEMINI_RETRY_BASE_WAIT = 2.0  # seconds
 
 # Embedding 基盤
 GEMINI_EMBED_MODEL = "gemini-embedding-001"
-SEMANTIC_DEDUP_THRESHOLD = 0.88  # これ以上のコサイン類似度を同一トピックとみなす（要調整）
+# これ以上のコサイン類似度を同一トピックとみなす（KV settings.semantic_dedup_threshold で上書き可）
+SEMANTIC_DEDUP_THRESHOLD = 0.88
 ENABLE_SEMANTIC_DEDUP = True
 ENABLE_PREFERENCE_RERANK = True
 MAX_EMBED_TEXTS_PER_RUN = 400   # 1実行あたりの埋め込み上限ガード。超過時はフォールバック

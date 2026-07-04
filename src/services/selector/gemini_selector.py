@@ -144,7 +144,11 @@ async def _call_gemini(
 
 
 def _fallback_selection(articles: list[Article], category_id: str) -> list[SelectedArticle]:
-    """Gemini が 0 件返したときのフォールバック: 先頭1件を自動選定する。"""
+    """Gemini が 0 件返したときのフォールバック: 先頭1件を自動選定する。
+
+    バケットは bucket_articles() で嗜好スコア/新しさ降順にソート済みのため、
+    先頭が最良候補となる。
+    """
     a = articles[0]
     s = SelectedArticle(
         article=a,
@@ -167,7 +171,10 @@ async def _select_for_category(
         return (category.id, [])
 
     system_prompt = _build_system_prompt(category, pref_summary, max_count, include_keywords)
-    cfg = types.GenerateContentConfig(system_instruction=system_prompt)
+    cfg = types.GenerateContentConfig(
+        system_instruction=system_prompt,
+        response_mime_type="application/json",
+    )
     article_text = _build_article_list_text(articles)
     prompt = (
         f"以下の記事リストから{category.name}カテゴリのおすすめを"
@@ -175,7 +182,8 @@ async def _select_for_category(
         f"（必ず1件以上選ぶこと）:\n\n{article_text}"
     )
 
-    for model in (GEMINI_MODEL, GEMINI_FALLBACK_MODEL):
+    # dict.fromkeys: フォールバックがプライマリと同一値に退行しても同じモデルを2周しない
+    for model in dict.fromkeys((GEMINI_MODEL, GEMINI_FALLBACK_MODEL)):
         try:
             selected = await _call_gemini(client, model, prompt, cfg, articles, max_count)
             for s in selected:

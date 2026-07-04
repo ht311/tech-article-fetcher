@@ -55,4 +55,5 @@ export interface UserSettings {
   category_defs?: CategoryDef[] | null;
   article_fetch_hours?: number | null;
   gemini_max_input_per_category?: number | null;
+  semantic_dedup_threshold?: number | null;
 }

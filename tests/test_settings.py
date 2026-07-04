@@ -1,5 +1,8 @@
 from datetime import UTC, datetime
 
+import pytest
+from pydantic import ValidationError
+
 from src.core.models import Article, CategoryDef, UserSettings
 from src.services.selector.categorizer import bucket_articles
 
@@ -56,6 +59,17 @@ class TestUserSettings:
         s = UserSettings.model_validate(data)
         assert s.max_per_category == 2
         assert s.exclude_keywords == ["spam"]
+
+    def test_semantic_dedup_threshold_valid_bounds(self) -> None:
+        assert UserSettings(semantic_dedup_threshold=0.5).semantic_dedup_threshold == 0.5
+        assert UserSettings(semantic_dedup_threshold=1.0).semantic_dedup_threshold == 1.0
+        assert UserSettings().semantic_dedup_threshold is None
+
+    def test_semantic_dedup_threshold_out_of_bounds_raises(self) -> None:
+        with pytest.raises(ValidationError):
+            UserSettings(semantic_dedup_threshold=0.3)
+        with pytest.raises(ValidationError):
+            UserSettings(semantic_dedup_threshold=1.2)
 
 
 class TestArticleFiltering:

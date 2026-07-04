@@ -29,7 +29,6 @@ from src.core.config import (
     ENABLE_SEMANTIC_DEDUP,
     EXTENDED_FETCH_HOURS,
     MAX_PINNED_PER_CATEGORY,
-    SEMANTIC_DEDUP_THRESHOLD,
     SENT_HISTORY_DEDUP_DAYS,
 )
 from src.core.models import Article, CategoryDef, SelectedArticle
@@ -195,7 +194,7 @@ async def main() -> None:
                 article_embeddings = all_embeddings[: len(unique_articles)]
                 before = len(unique_articles)
                 unique_articles = semantic_dedup(
-                    unique_articles, article_embeddings, SEMANTIC_DEDUP_THRESHOLD
+                    unique_articles, article_embeddings, rc.semantic_dedup_threshold
                 )
                 logger.info(
                     "After semantic dedup: %d articles (removed %d)",
