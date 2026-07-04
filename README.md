@@ -613,7 +613,7 @@ PR ・`main` push 時に以下の3つのワークフローが並行実行され�
 
 auto-merge は `auto-merge.yml`（通常 PR）と `dependabot-auto-merge.yml`（Dependabot PR）が `gh pr merge --auto --squash` を呼び、GitHub が必須チェック全通過後に自動でマージする。
 
-`dependabot-rebase.yml` は `main` への push をトリガーに、オープン中の Dependabot PR すべてに `@dependabot rebase` コメントを投稿し、自動でリベースを促す。
+`main` の branch protection は `required_status_checks.strict` が有効（PR は `main` に対して最新である必要がある）。GitHub の Merge Queue は organization 所有リポジトリ限定の機能でこのリポジトリ（個人アカウント所有）では使えないため、代わりに `sync-open-prs.yml` が `main` への push をトリガーに、オープン中の PR 全てへ `update-branch` API を呼んで自動で最新化する。conflict で更新に失敗した場合、Dependabot PR には `@dependabot recreate` をコメントして PR の再作成を促す（Dependabot 以外の PR は手動対応が必要）。
 
 ### 必要な GitHub Secrets
 
