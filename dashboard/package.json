@@ -15,9 +15,9 @@
     "screenshots": "playwright install chromium && tsx scripts/screenshot.mts"
   },
   "dependencies": {
-    "@cloudflare/workers-types": "^4.20260615.1",
-    "@radix-ui/react-dialog": "^1.1.15",
-    "@radix-ui/react-tooltip": "^1.2.8",
+    "@cloudflare/workers-types": "^4.20260621.1",
+    "@radix-ui/react-dialog": "^1.1.17",
+    "@radix-ui/react-tooltip": "^1.2.10",
     "next": "16.2.9",
     "react": "19.2.7",
     "react-dom": "19.2.7",
@@ -35,6 +35,6 @@
     "tsx": "^4.19.2",
     "typescript": "^6",
     "vitest": "^4.1.9",
-    "wrangler": "4.100.0"
+    "wrangler": "4.103.0"
   }
 }
