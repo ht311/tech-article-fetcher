@@ -611,7 +611,7 @@ PR ・`main` push 時に以下の3つのワークフローが並行実行され�
 | `dashboard-ci.yml` | biome（lint）・tsc（型検査）・vitest（テスト） |
 | `type-drift.yml` | `scripts/gen_types.py` を実行し `_types.generated.ts` が最新かを検証 |
 
-auto-merge は `auto-merge.yml`（通常 PR）と `dependabot-auto-merge.yml`（Dependabot PR）が `gh pr merge --auto --squash` を呼び、GitHub が必須チェック全通過後に自動でマージする。
+auto-merge は `auto-merge.yml`（通常 PR）と `dependabot-auto-merge.yml`（Dependabot PR）が `gh pr merge --auto --squash` を呼び、GitHub が必須チェック全通過後に自動でマージする。どちらも `GH_PAT` を使ってマージする（`GITHUB_TOKEN` で発生させたイベントは新規 workflow run をトリガーしないため、後述の `sync-open-prs.yml` を確実に起動させる目的で PAT を使う）。
 
 `main` の branch protection は `required_status_checks.strict` が有効（PR は `main` に対して最新である必要がある）。GitHub の Merge Queue は organization 所有リポジトリ限定の機能でこのリポジトリ（個人アカウント所有）では使えないため、代わりに `sync-open-prs.yml` が `main` への push をトリガーに、オープン中の PR 全てへ `update-branch` API を呼んで自動で最新化する。conflict で更新に失敗した場合、Dependabot PR には `@dependabot recreate` をコメントして PR の再作成を促す（Dependabot 以外の PR は手動対応が必要）。
 
@@ -626,6 +626,7 @@ auto-merge は `auto-merge.yml`（通常 PR）と `dependabot-auto-merge.yml`（
 | `CLOUDFLARE_API_TOKEN` | KV REST API 認証・Pages デプロイ |
 | `CLOUDFLARE_ACCOUNT_ID` | KV REST API・Pages デプロイ |
 | `CLOUDFLARE_KV_NAMESPACE_ID` | KV Namespace 指定 |
+| `GH_PAT` | auto-merge・dependabot-auto-merge・sync-open-prs の PR 操作（`repo` 権限）。`GITHUB_TOKEN` だと後続 workflow がトリガーされないため PAT が必要 |
 
 ---
 
