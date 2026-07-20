@@ -1,6 +1,6 @@
 feedparser>=6.0.12
 google-genai>=2.10.0
 httpx>=0.28.1
-line-bot-sdk>=3.23.1
+line-bot-sdk>=3.25.0
 pydantic>=2.13.4
 python-dotenv>=1.2.2
