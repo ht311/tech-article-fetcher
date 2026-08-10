@@ -1,4 +1,4 @@
-feedparser>=6.0.12
+feedparser>=6.0.14
 google-genai>=2.10.0
 httpx>=0.28.1
 line-bot-sdk>=3.23.1
