@@ -12,7 +12,7 @@ dependencies = [
     "httpx>=0.28.1",
     "line-bot-sdk>=3.23.1",
     "pydantic>=2.13.4",
-    "python-dotenv>=1.2.2",
+    "python-dotenv>=1.2.3",
     "beautifulsoup4>=4.15.0",
 ]
 
